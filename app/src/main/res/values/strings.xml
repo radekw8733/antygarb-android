@@ -2,4 +2,9 @@
     <string name="app_name">Antygarb</string>
     <string name="notification_channel">Detektor postawy</string>
     <string name="notification_text">Aplikacja działa w tle i będzie powiadamiać cię o złej postawie. Kliknij tutaj aby ją zakończyć</string>
+
+    <string name="dialog_title">Dostęp do kamery</string>
+    <string name="dialog_explanation">Ta aplikacja używa dostępu do kamery do obliczania postawy ciała</string>
+    <string name="dialog_ok">OK</string>
+    <string name="dialog_problem">Aplikacja potrzebuje dostępu do kamery, inaczej nie będzie ona działać</string>
 </resources>

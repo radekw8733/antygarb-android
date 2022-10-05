@@ -1,36 +1,37 @@
 package net.radekw8733.antygarb;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
-import android.app.Notification;
+import android.Manifest;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
-import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.Build;
+import android.content.pm.PackageManager;
 import android.os.Bundle;
-import android.util.Log;
+
+import com.google.android.material.color.DynamicColors;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import net.radekw8733.antygarb.ml.LiteModelMovenetSingleposeLightning3;
-
-import java.io.IOException;
 
 public class CameraActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        DynamicColors.applyToActivityIfAvailable(this);
         setContentView(R.layout.activity_camera);
         setupNotificationChannel();
         enableStopIntentFilter();
 
-        if (requestPermissions()) {
-            Intent intent = new Intent(this, CameraBackgroundService.class);
-            getApplicationContext().startForegroundService(intent);
-        }
+        requestPermissions();
+//            Intent intent = new Intent(this, CameraBackgroundService.class);
+//            getApplicationContext().startForegroundService(intent);
     }
 
     private void setupNotificationChannel() {
@@ -55,7 +56,46 @@ public class CameraActivity extends AppCompatActivity {
         registerReceiver(receiver, filter);
     }
 
-    private boolean requestPermissions() {
-        return true;
+    private void requestPermissions() {
+        if (getApplicationContext().checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+            enableService();
+        }
+        else {
+            new MaterialAlertDialogBuilder(CameraActivity.this)
+                    .setTitle(R.string.dialog_title)
+                    .setMessage(R.string.dialog_explanation)
+                    .setPositiveButton(R.string.dialog_ok, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            requestPermissions(new String[] { Manifest.permission.CAMERA }, 1);
+                        }
+                    })
+                    .show();
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            enableService();
+        }
+        else {
+            new MaterialAlertDialogBuilder(CameraActivity.this)
+                    .setTitle(R.string.dialog_title)
+                    .setMessage(R.string.dialog_problem)
+                    .setPositiveButton(R.string.dialog_ok, new DialogInterface.OnClickListener() {
+                        @Override
+                        public void onClick(DialogInterface dialogInterface, int i) {
+                            finish();
+                        }
+                    })
+                    .show();
+        }
+
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
+    private void enableService() {
+
     }
 }
