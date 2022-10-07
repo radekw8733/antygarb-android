@@ -2,12 +2,6 @@ package net.radekw8733.antygarb;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.Camera;
-import androidx.camera.core.CameraSelector;
-import androidx.camera.core.Preview;
-import androidx.camera.lifecycle.ProcessCameraProvider;
-import androidx.camera.view.PreviewView;
-import androidx.core.content.ContextCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import android.Manifest;
@@ -20,15 +14,13 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Bundle;
+import android.util.Log;
 
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.common.util.concurrent.ListenableFuture;
 
-public class MainActivity extends AppCompatActivity {
-    private PreviewView cameraPreview;
-    private ProcessCameraProvider cameraProvider;
-    private Camera camera;
+public class MainActivity extends AppCompatActivity implements KeypointsReturn {
+    private CameraInferenceUtil util;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -36,8 +28,8 @@ public class MainActivity extends AppCompatActivity {
         DynamicColors.applyToActivityIfAvailable(this);
         setContentView(R.layout.activity_camera);
 
-        cameraPreview = findViewById(R.id.previewView);
-
+        util = new CameraInferenceUtil(this, findViewById(R.id.previewView));
+        util.setKeypointCallback(this);
         setupNotificationChannel();
         enableStopIntentFilter();
         requestPermissions();
@@ -68,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void requestPermissions() {
         if (getApplicationContext().checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            setupCamera();
+            util.setupCamera();
         }
         else {
             new MaterialAlertDialogBuilder(MainActivity.this)
@@ -87,7 +79,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-            setupCamera();
+            util.setupCamera();
         }
         else {
             new MaterialAlertDialogBuilder(MainActivity.this)
@@ -105,26 +97,14 @@ public class MainActivity extends AppCompatActivity {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
-    private void setupCamera() {
-        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-        cameraProviderFuture.addListener(() -> {
-            try {
-                cameraProvider = cameraProviderFuture.get();
-                setupPreview(cameraProvider);
-            }
-            catch (Exception ignored) {}
-        }, ContextCompat.getMainExecutor(this));
-    }
-
-    private void setupPreview(ProcessCameraProvider cameraProvider) {
-        Preview preview = new Preview.Builder().build();
-
-        CameraSelector cameraSelector = new CameraSelector.Builder()
-                .requireLensFacing(CameraSelector.LENS_FACING_FRONT).build();
-
-        preview.setSurfaceProvider(cameraPreview.getSurfaceProvider());
-
-        camera = cameraProvider.bindToLifecycle(this, cameraSelector, preview);
+    public void returnKeypoints(CameraInferenceUtil.Keypoints keypoints) {
+        Log.d("Antygarb", String.format("x1: %d y1: %d  x2: %d y2: %d   conf: %d",
+                keypoints.leftShoulderX,
+                keypoints.leftShoulderY,
+                keypoints.rightShoulderX,
+                keypoints.rightShoulderY,
+                keypoints.confidence
+        ));
     }
 
     @Override
