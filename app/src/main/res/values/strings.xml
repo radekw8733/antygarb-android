@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Antygarb</string>
+    <string name="app_name">Anti-hump</string>
     <string name="notification_channel">Detektor postawy</string>
     <string name="notification_text">Aplikacja działa w tle i będzie powiadamiać cię o złej postawie. Kliknij tutaj aby ją zakończyć</string>
 
