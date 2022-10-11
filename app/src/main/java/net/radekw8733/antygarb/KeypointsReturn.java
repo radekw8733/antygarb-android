@@ -1,5 +1,7 @@
 package net.radekw8733.antygarb;
 
+import java.util.Map;
+
 public interface KeypointsReturn {
-    void returnKeypoints(CameraInferenceUtil.Keypoints keypoints);
+    void returnKeypoints(Map<String, CameraInferenceUtil.Keypoint> keypoints);
 }

@@ -3,7 +3,11 @@ package net.radekw8733.antygarb;
 import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
+import android.graphics.Color;
 import android.graphics.ImageFormat;
+import android.graphics.Matrix;
+import android.graphics.drawable.ShapeDrawable;
+import android.graphics.drawable.shapes.RectShape;
 import android.media.Image;
 import android.view.Display;
 import android.view.WindowManager;
@@ -22,12 +26,16 @@ import androidx.lifecycle.LifecycleOwner;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import net.radekw8733.antygarb.ml.LiteModelMovenetSingleposeLightningTfliteInt84;
+import net.radekw8733.antygarb.ml.LiteModelMovenetSingleposeLightning3;
 
+import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.support.image.TensorImage;
+import org.tensorflow.lite.support.image.ops.ResizeOp;
+import org.tensorflow.lite.support.image.ops.Rot90Op;
 
 import java.io.IOException;
 import java.nio.FloatBuffer;
+import java.util.HashMap;
 
 public class CameraInferenceUtil {
     private Context context;
@@ -36,7 +44,7 @@ public class CameraInferenceUtil {
     private ImageAnalysis imageAnalysis;
     private ImageCapture imageCapture;
     private Camera camera;
-    private LiteModelMovenetSingleposeLightningTfliteInt84 model;
+    private LiteModelMovenetSingleposeLightning3 model;
     private KeypointsReturn callback;
 
     // variant with preview and image analysis, intended for activity
@@ -99,7 +107,8 @@ public class CameraInferenceUtil {
         imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(context), new ImageAnalysis.Analyzer() {
             @Override
             public void analyze(@NonNull ImageProxy image) {
-                Keypoints keypoints = runPoseInference(image);
+                HashMap<String, Keypoint> keypoints = runPoseInference(image);
+                previewView.getOverlay().clear();
                 callback.returnKeypoints(keypoints);
                 image.close();
             }
@@ -110,38 +119,55 @@ public class CameraInferenceUtil {
         imageCapture.takePicture(ContextCompat.getMainExecutor(context), new ImageCapture.OnImageCapturedCallback() {
             @Override
             public void onCaptureSuccess(@NonNull ImageProxy image) {
-                Keypoints keypoints = runPoseInference(image);
+                HashMap<String, Keypoint> keypoints = runPoseInference(image);
+                previewView.getOverlay().clear();
                 callback.returnKeypoints(keypoints);
                 image.close();
             }
         });
     }
 
-    private Keypoints runPoseInference(ImageProxy image) {
+    private HashMap<String, Keypoint> runPoseInference(ImageProxy image) {
         @SuppressLint("UnsafeOptInUsageError") Bitmap rawImage = imageToBitmap(image.getImage());
-        rawImage = Bitmap.createScaledBitmap(rawImage, 192, 192, true);
+        Matrix matrix = new Matrix();
+        matrix.postScale(-1, 1);
+        rawImage = Bitmap.createBitmap(rawImage, 0, 0, rawImage.getWidth(), rawImage.getHeight(), matrix, true);
 
-        TensorImage tensorImage = new TensorImage();
+        TensorImage tensorImage = new TensorImage(DataType.FLOAT32);
         tensorImage.load(rawImage);
+        tensorImage = new Rot90Op(3).apply(tensorImage);
+        tensorImage = new ResizeOp(192, 192, ResizeOp.ResizeMethod.BILINEAR).apply(tensorImage);
 
         // inference
-        LiteModelMovenetSingleposeLightningTfliteInt84.Outputs outputs = model.process(tensorImage.getTensorBuffer());
+        LiteModelMovenetSingleposeLightning3.Outputs outputs = model.process(tensorImage.getTensorBuffer());
 
         float[] outputArray = outputs.getOutputFeature0AsTensorBuffer().getFloatArray();
         if (outputArray.length > 0) {
             FloatBuffer buffer = FloatBuffer.wrap(outputArray);
-            buffer.position(16); // start position of left shoulder from model
 
-            Keypoints keypoints = new Keypoints();
-            keypoints.leftShoulderX = Math.round(buffer.get() * image.getWidth());
-            keypoints.leftShoulderY = Math.round(buffer.get() * image.getHeight());
-            keypoints.confidence = Math.round(buffer.get() * 100);
+            HashMap<String, Keypoint> keypoints = new HashMap<>();
+            while (buffer.hasRemaining()) {
+                Keypoint point = new Keypoint();
 
-            keypoints.rightShoulderX = Math.round(buffer.get() * image.getWidth());
-            keypoints.rightShoulderY = Math.round(buffer.get() * image.getHeight());
-            keypoints.confidence = Math.round(buffer.get() * 100);
+                // prescaled to match preview size
+                // +- 50 to fix weird offset issue
+                point.y = Math.round(buffer.get() * previewView.getWidth()) + 50;
+                point.x = Math.round(buffer.get() * previewView.getHeight()) - 50;
+                point.confidence = Math.round(buffer.get() * 100); // percent
 
-            keypoints.confidence /= 2; // calculate average
+                // save only shoulder keypoints, rest is only visualised
+                switch (buffer.position()) {
+                    case 19:
+                        keypoints.put("left_shoulder", point);
+                        break;
+                    case 22:
+                        keypoints.put("right_shoulder", point);
+                        break;
+                    default:
+                        keypoints.put(String.valueOf(buffer.position()), point);
+                        break;
+                }
+            }
             return keypoints;
         }
         else {
@@ -168,22 +194,25 @@ public class CameraInferenceUtil {
         return rawImage;
     }
 
+    public ShapeDrawable newPoint(int x, int y) {
+        ShapeDrawable shape = new ShapeDrawable(new RectShape());
+        shape.getPaint().setColor(Color.GREEN);
+        shape.setBounds(x - 4, y - 4, x + 8, y + 8);
+        return shape;
+    }
+
     private void loadMovenetModel() {
         try {
-            model = LiteModelMovenetSingleposeLightningTfliteInt84.newInstance(context);
+            model = LiteModelMovenetSingleposeLightning3.newInstance(context);
         }
         catch (IOException e) {
             model.close();
         }
     }
 
-    public class Keypoints {
-        public int leftShoulderX;
-        public int leftShoulderY;
-
-        public int rightShoulderX;
-        public int rightShoulderY;
-
+    public class Keypoint {
+        public int x;
+        public int y;
         public int confidence;
     }
 }

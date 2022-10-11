@@ -13,20 +13,25 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
+import android.graphics.drawable.ShapeDrawable;
 import android.os.Bundle;
-import android.util.Log;
+import android.view.ViewOverlay;
 
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.util.Map;
+
 public class MainActivity extends AppCompatActivity implements KeypointsReturn {
     private CameraInferenceUtil util;
+    private ViewOverlay overlay;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         DynamicColors.applyToActivityIfAvailable(this);
         setContentView(R.layout.activity_camera);
+        overlay = findViewById(R.id.previewView).getOverlay();
 
         util = new CameraInferenceUtil(this, findViewById(R.id.previewView));
         util.setKeypointCallback(this);
@@ -85,6 +90,7 @@ public class MainActivity extends AppCompatActivity implements KeypointsReturn {
             new MaterialAlertDialogBuilder(MainActivity.this)
                     .setTitle(R.string.dialog_title)
                     .setMessage(R.string.dialog_problem)
+                    .setIcon(android.R.drawable.ic_dialog_alert)
                     .setPositiveButton(R.string.dialog_ok, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
@@ -93,18 +99,16 @@ public class MainActivity extends AppCompatActivity implements KeypointsReturn {
                     })
                     .show();
         }
-
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
-    public void returnKeypoints(CameraInferenceUtil.Keypoints keypoints) {
-        Log.d("Antygarb", String.format("x1: %d y1: %d  x2: %d y2: %d   conf: %d",
-                keypoints.leftShoulderX,
-                keypoints.leftShoulderY,
-                keypoints.rightShoulderX,
-                keypoints.rightShoulderY,
-                keypoints.confidence
-        ));
+    public void returnKeypoints(Map<String, CameraInferenceUtil.Keypoint> keypoints) {
+        for (CameraInferenceUtil.Keypoint point : keypoints.values()) {
+            if (point.confidence > 30) {
+                ShapeDrawable drawable = util.newPoint(point.x, point.y);
+                overlay.add(drawable);
+            }
+        }
     }
 
     @Override

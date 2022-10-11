@@ -18,13 +18,13 @@ import androidx.lifecycle.LifecycleOwner;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import net.radekw8733.antygarb.ml.LiteModelMovenetSingleposeLightningTfliteInt84;
+import net.radekw8733.antygarb.ml.LiteModelMovenetSingleposeLightning3;
 
 import java.io.IOException;
 
 public class CameraBackgroundService extends Service {
 
-    private LiteModelMovenetSingleposeLightningTfliteInt84 model;
+    private LiteModelMovenetSingleposeLightning3 model;
     ProcessCameraProvider cameraProvider;
     private Camera camera;
 
@@ -90,7 +90,7 @@ public class CameraBackgroundService extends Service {
 
     private void loadMovenetModel() {
         try {
-            model = LiteModelMovenetSingleposeLightningTfliteInt84.newInstance(this);
+            model = LiteModelMovenetSingleposeLightning3.newInstance(this);
         }
         catch (IOException e) {
             model.close();
