@@ -52,7 +52,7 @@ public class CameraBackgroundService extends Service {
             }
         };
         IntentFilter stopFilter = new IntentFilter();
-        stopFilter.addAction("net.radekw8733.Antygarb.ANTYGARB_EXIT");
+        stopFilter.addAction("net.radekw8733.Antygarb.ANTYGARB_SERVICE_EXIT");
         registerReceiver(stopBroadcastReceiver, stopFilter);
     }
 

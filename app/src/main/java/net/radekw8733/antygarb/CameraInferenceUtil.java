@@ -9,6 +9,7 @@ import android.graphics.Matrix;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.RectShape;
 import android.media.Image;
+import android.util.Log;
 import android.view.Display;
 import android.view.WindowManager;
 
@@ -36,6 +37,7 @@ import org.tensorflow.lite.support.image.ops.Rot90Op;
 import java.io.IOException;
 import java.nio.FloatBuffer;
 import java.util.HashMap;
+import java.util.Map;
 
 public class CameraInferenceUtil {
     private Context context;
@@ -135,7 +137,7 @@ public class CameraInferenceUtil {
 
         TensorImage tensorImage = new TensorImage(DataType.FLOAT32);
         tensorImage.load(rawImage);
-        tensorImage = new Rot90Op(3).apply(tensorImage);
+        tensorImage = new Rot90Op(-1).apply(tensorImage);
         tensorImage = new ResizeOp(192, 192, ResizeOp.ResizeMethod.BILINEAR).apply(tensorImage);
 
         // inference
@@ -157,10 +159,10 @@ public class CameraInferenceUtil {
 
                 // save only shoulder keypoints, rest is only visualised
                 switch (buffer.position()) {
-                    case 19:
+                    case 18:
                         keypoints.put("left_shoulder", point);
                         break;
-                    case 22:
+                    case 21:
                         keypoints.put("right_shoulder", point);
                         break;
                     default:
@@ -173,6 +175,38 @@ public class CameraInferenceUtil {
         else {
             return null;
         }
+    }
+
+    // check if user posture is good
+    // return false if it's bad or true if it's good or there isn't calibrated pose set
+    public boolean estimatePose(Map<String, Keypoint> keypoints, CalibratedPose calibratedPose) {
+        Keypoint leftShoulder = keypoints.get("left_shoulder");
+        Keypoint rightShoulder = keypoints.get("right_shoulder");
+
+        if (leftShoulder != null && rightShoulder != null && calibratedPose.isCalibrated) {
+            // check if shoulders are on the same height
+            int heightLevelDifference = Math.abs(leftShoulder.y - rightShoulder.y) - calibratedPose.shoulderLevel;
+            if (heightLevelDifference > 40) {
+                Log.d("Antihump", "=== Wrong pose detected! Shoulders not on the same height, difference:" + heightLevelDifference + " ===");
+                return false;
+            }
+
+            // distance formula
+            int leftX = leftShoulder.x - calibratedPose.leftShoulder.x;
+            int leftY = leftShoulder.y - calibratedPose.leftShoulder.y;
+            double leftDistance = Math.sqrt((leftX * leftX) + (leftY * leftY));
+
+            int rightX = rightShoulder.x - calibratedPose.rightShoulder.x;
+            int rightY = rightShoulder.y - calibratedPose.rightShoulder.y;
+            double rightDistance = Math.sqrt((rightX * rightX) + (rightY * rightY));
+
+            if (leftDistance + rightDistance > 60) {
+                Log.d("Antihump", "=== Wrong pose detected! Distance between calibrated shoulder points too high, difference: " + (leftDistance + rightDistance) + " ===");
+                return false;
+            }
+            return true;
+        }
+        else { return true; }
     }
 
     public void setKeypointCallback(KeypointsReturn callback) {
@@ -210,9 +244,16 @@ public class CameraInferenceUtil {
         }
     }
 
-    public class Keypoint {
+    public static class Keypoint {
         public int x;
         public int y;
         public int confidence;
+    }
+
+    public static class CalibratedPose {
+        public boolean isCalibrated = false;
+        public int shoulderLevel = 0;
+        public Keypoint leftShoulder;
+        public Keypoint rightShoulder;
     }
 }

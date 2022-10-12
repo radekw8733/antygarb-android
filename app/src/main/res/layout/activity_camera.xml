@@ -6,6 +6,31 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
+    <TextView
+        android:id="@+id/statusText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/activity_status_text"
+        android:visibility="invisible"
+        app:layout_constraintBottom_toTopOf="@+id/previewView"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.66" />
+
+    <Button
+        android:id="@+id/calibrateButton"
+        android:layout_width="169dp"
+        android:layout_height="68dp"
+        android:onClick="onClick"
+        android:text="@string/activity_button_calibrate"
+        android:textSize="16sp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/previewView"
+        app:layout_constraintVertical_bias="0.178" />
+
     <androidx.camera.view.PreviewView
         android:id="@+id/previewView"
         android:layout_width="wrap_content"
@@ -13,5 +38,8 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.40">
+
+    </androidx.camera.view.PreviewView>
 </androidx.constraintlayout.widget.ConstraintLayout>
