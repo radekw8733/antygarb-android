@@ -4,12 +4,13 @@ import android.annotation.SuppressLint;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.Color;
-import android.graphics.ImageFormat;
+import android.graphics.ImageDecoder;
 import android.graphics.Matrix;
 import android.graphics.drawable.ShapeDrawable;
 import android.graphics.drawable.shapes.RectShape;
 import android.media.Image;
 import android.util.Log;
+import android.util.Size;
 import android.view.Display;
 import android.view.WindowManager;
 
@@ -18,6 +19,7 @@ import androidx.camera.core.Camera;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
+import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
@@ -48,6 +50,7 @@ public class CameraInferenceUtil {
     private Camera camera;
     private LiteModelMovenetSingleposeLightning3 model;
     private KeypointsReturn callback;
+    private static Size resolution;
 
     // variant with preview and image analysis, intended for activity
     public CameraInferenceUtil(Context context, PreviewView previewView) {
@@ -72,7 +75,7 @@ public class CameraInferenceUtil {
                 cameraProvider = cameraProviderFuture.get();
                 setupLifecycle();
             }
-            catch (Exception ignored) {}
+            catch (Exception e) {e.printStackTrace();}
         }, ContextCompat.getMainExecutor(context));
     }
 
@@ -93,15 +96,17 @@ public class CameraInferenceUtil {
                     .build();
 
             camera = cameraProvider.bindToLifecycle((LifecycleOwner) context, cameraSelector, imageAnalysis, preview);
+            resolution = imageAnalysis.getAttachedSurfaceResolution();
             enableImageAnalysis();
         }
         else {
             imageCapture = new ImageCapture.Builder()
                     .setTargetRotation(displayService.getRotation())
-                    .setBufferFormat(ImageFormat.FLEX_RGBA_8888)
+                    .setTargetResolution(resolution)
                     .build();
 
-            camera = cameraProvider.bindToLifecycle((LifecycleOwner) context, cameraSelector, imageAnalysis);
+            camera = cameraProvider.bindToLifecycle((LifecycleOwner) context, cameraSelector, imageCapture);
+            CameraBackgroundService.setupTimer();
         }
     }
 
@@ -109,7 +114,7 @@ public class CameraInferenceUtil {
         imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(context), new ImageAnalysis.Analyzer() {
             @Override
             public void analyze(@NonNull ImageProxy image) {
-                HashMap<String, Keypoint> keypoints = runPoseInference(image);
+                @SuppressLint("UnsafeOptInUsageError") HashMap<String, Keypoint> keypoints = runPoseInference(imageToBitmap(image.getImage()));
                 previewView.getOverlay().clear();
                 callback.returnKeypoints(keypoints);
                 image.close();
@@ -117,27 +122,32 @@ public class CameraInferenceUtil {
         });
     }
 
-    private void takePicture() {
+    public void takePicture() {
         imageCapture.takePicture(ContextCompat.getMainExecutor(context), new ImageCapture.OnImageCapturedCallback() {
             @Override
             public void onCaptureSuccess(@NonNull ImageProxy image) {
-                HashMap<String, Keypoint> keypoints = runPoseInference(image);
-                previewView.getOverlay().clear();
+                @SuppressLint("UnsafeOptInUsageError") HashMap<String, Keypoint> keypoints = runPoseInference(decodeImage(image.getImage()));
                 callback.returnKeypoints(keypoints);
                 image.close();
+            }
+
+            @Override
+            public void onError(@NonNull final ImageCaptureException exception) {
+                Log.e("Antihump", exception.toString());
             }
         });
     }
 
-    private HashMap<String, Keypoint> runPoseInference(ImageProxy image) {
-        @SuppressLint("UnsafeOptInUsageError") Bitmap rawImage = imageToBitmap(image.getImage());
+    private HashMap<String, Keypoint> runPoseInference(Bitmap rawImage) {
         Matrix matrix = new Matrix();
         matrix.postScale(-1, 1);
         rawImage = Bitmap.createBitmap(rawImage, 0, 0, rawImage.getWidth(), rawImage.getHeight(), matrix, true);
 
         TensorImage tensorImage = new TensorImage(DataType.FLOAT32);
         tensorImage.load(rawImage);
-        tensorImage = new Rot90Op(-1).apply(tensorImage);
+        if (previewView != null) { // fix for bitmap weirdly rotated out of imageAnalysis
+            tensorImage = new Rot90Op(-1).apply(tensorImage);
+        }
         tensorImage = new ResizeOp(192, 192, ResizeOp.ResizeMethod.BILINEAR).apply(tensorImage);
 
         // inference
@@ -151,10 +161,8 @@ public class CameraInferenceUtil {
             while (buffer.hasRemaining()) {
                 Keypoint point = new Keypoint();
 
-                // prescaled to match preview size
-                // +- 50 to fix weird offset issue
-                point.y = Math.round(buffer.get() * previewView.getWidth()) + 50;
-                point.x = Math.round(buffer.get() * previewView.getHeight()) - 50;
+                point.y = buffer.get();
+                point.x = buffer.get();
                 point.confidence = Math.round(buffer.get() * 100); // percent
 
                 // save only shoulder keypoints, rest is only visualised
@@ -185,22 +193,22 @@ public class CameraInferenceUtil {
 
         if (leftShoulder != null && rightShoulder != null && calibratedPose.isCalibrated) {
             // check if shoulders are on the same height
-            int heightLevelDifference = Math.abs(leftShoulder.y - rightShoulder.y) - calibratedPose.shoulderLevel;
-            if (heightLevelDifference > 40) {
+            int heightLevelDifference = Math.abs(Math.round(leftShoulder.y * 100) - Math.round(rightShoulder.y * 100)) - calibratedPose.shoulderLevel;
+            if (heightLevelDifference > 5) {
                 Log.d("Antihump", "=== Wrong pose detected! Shoulders not on the same height, difference:" + heightLevelDifference + " ===");
                 return false;
             }
 
             // distance formula
-            int leftX = leftShoulder.x - calibratedPose.leftShoulder.x;
-            int leftY = leftShoulder.y - calibratedPose.leftShoulder.y;
+            float leftX = leftShoulder.x - calibratedPose.leftShoulder.x;
+            float leftY = leftShoulder.y - calibratedPose.leftShoulder.y;
             double leftDistance = Math.sqrt((leftX * leftX) + (leftY * leftY));
 
-            int rightX = rightShoulder.x - calibratedPose.rightShoulder.x;
-            int rightY = rightShoulder.y - calibratedPose.rightShoulder.y;
+            float rightX = rightShoulder.x - calibratedPose.rightShoulder.x;
+            float rightY = rightShoulder.y - calibratedPose.rightShoulder.y;
             double rightDistance = Math.sqrt((rightX * rightX) + (rightY * rightY));
 
-            if (leftDistance + rightDistance > 60) {
+            if (leftDistance + rightDistance > 0.1 && leftY > 0 && rightY > 0) {
                 Log.d("Antihump", "=== Wrong pose detected! Distance between calibrated shoulder points too high, difference: " + (leftDistance + rightDistance) + " ===");
                 return false;
             }
@@ -213,19 +221,23 @@ public class CameraInferenceUtil {
         this.callback = callback;
     }
 
-    public void getKeypoints() {
-        if (previewView != null) {
-            enableImageAnalysis();
-        }
-        else {
-            takePicture();
-        }
-    }
-
+    // call when image is a RGB array
     private Bitmap imageToBitmap(Image image) {
         Bitmap rawImage = Bitmap.createBitmap(image.getWidth(), image.getHeight(), Bitmap.Config.ARGB_8888);
         rawImage.copyPixelsFromBuffer(image.getPlanes()[0].getBuffer());
         return rawImage;
+    }
+
+    // call when image is encoded as JPEG
+    private Bitmap decodeImage(Image image) {
+        ImageDecoder.Source source = ImageDecoder.createSource(image.getPlanes()[0].getBuffer());
+        try {
+            return ImageDecoder.decodeBitmap(source).copy(Bitmap.Config.ARGB_8888, false);
+        }
+        catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
     }
 
     public ShapeDrawable newPoint(int x, int y) {
@@ -245,8 +257,8 @@ public class CameraInferenceUtil {
     }
 
     public static class Keypoint {
-        public int x;
-        public int y;
+        public float x;
+        public float y;
         public int confidence;
     }
 

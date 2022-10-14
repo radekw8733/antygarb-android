@@ -2,32 +2,26 @@ package net.radekw8733.antygarb;
 
 import android.app.Notification;
 import android.app.PendingIntent;
-import android.app.Service;
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.os.IBinder;
-import android.util.Log;
+import android.graphics.Color;
 
-import androidx.camera.core.Camera;
-import androidx.camera.core.CameraSelector;
-import androidx.camera.lifecycle.ProcessCameraProvider;
-import androidx.core.content.ContextCompat;
-import androidx.lifecycle.LifecycleOwner;
+import androidx.core.app.NotificationManagerCompat;
+import androidx.lifecycle.LifecycleService;
 
-import com.google.common.util.concurrent.ListenableFuture;
+import java.util.Map;
+import java.util.Timer;
+import java.util.TimerTask;
 
-import net.radekw8733.antygarb.ml.LiteModelMovenetSingleposeLightning3;
-
-import java.io.IOException;
-
-public class CameraBackgroundService extends Service {
-
-    private LiteModelMovenetSingleposeLightning3 model;
-    ProcessCameraProvider cameraProvider;
-    private Camera camera;
-
+public class CameraBackgroundService extends LifecycleService implements KeypointsReturn{
+    private static CameraInferenceUtil util;
+    public static CameraInferenceUtil.CalibratedPose calibratedPose;
+    private NotificationManagerCompat notificationManager;
+    private static Timer timer;
+    private int notificationID = (int) (Math.random() * 10000);
+    private int wrongPostureCounter = 0;
     public static boolean isRunning = false; // static variable to avoid launching multiple services
 
     public CameraBackgroundService() {}
@@ -35,90 +29,97 @@ public class CameraBackgroundService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         isRunning = true;
-        registerStopBroadcastReceiver();
+        calibratedPose = MainActivity.calibratedPose;
+
         enableBusyNotification();
-        enableStopIntentFilter();
-        loadMovenetModel();
-        setupCamera();
+
+        util = new CameraInferenceUtil(this);
+        util.setKeypointCallback(this);
+        util.setupCamera();
 
         return super.onStartCommand(intent, flags, startId);
     }
 
-    private void registerStopBroadcastReceiver() {
-        BroadcastReceiver stopBroadcastReceiver = new BroadcastReceiver() {
+    @Override
+    public void onDestroy() {
+        stopService();
+
+        super.onDestroy();
+    }
+
+    public static void setupTimer() {
+        timer = new Timer();
+        timer.schedule(new TimerTask() {
             @Override
-            public void onReceive(Context context, Intent intent) {
-                stopService();
+            public void run() {
+                util.takePicture();
             }
-        };
-        IntentFilter stopFilter = new IntentFilter();
-        stopFilter.addAction("net.radekw8733.Antygarb.ANTYGARB_SERVICE_EXIT");
-        registerReceiver(stopBroadcastReceiver, stopFilter);
+        }, 0, 5000);
+    }
+
+    private void sendNotification() {
+        Notification notification = new Notification.Builder(this, "Powiadomienia o złej postawie")
+                .setContentTitle(getString(R.string.app_name))
+                .setContentText(getString(R.string.notification_text))
+                .setSmallIcon(R.drawable.antygarb_notification_icon)
+                .setVisibility(Notification.VISIBILITY_PUBLIC)
+                .build();
+
+        notificationManager.notify(notificationID, notification);
+    }
+
+    private void removeNotification() {
+        notificationManager.cancel(notificationID);
+    }
+
+    public void returnKeypoints(Map<String, CameraInferenceUtil.Keypoint> keypoints) {
+        if (keypoints.size() > 0) {
+            if (!util.estimatePose(keypoints, calibratedPose)) {
+                if (wrongPostureCounter > 6) {
+                    // if wrong posture is through 30s of time, send notification
+                    sendNotification();
+                    wrongPostureCounter = 0;
+                }
+                wrongPostureCounter++;
+            }
+            else {
+                // reset counter
+                wrongPostureCounter = 0;
+                removeNotification();
+            }
+        }
     }
 
     private void stopService() {
-        model.close();
-        stopForeground(STOP_FOREGROUND_REMOVE);
         isRunning = false;
+        timer.cancel();
+        stopSelf();
     }
 
     private void enableBusyNotification() {
-        Intent backIntent = new Intent("net.radekw8733.Antygarb.ANTYGARB_EXIT");
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, backIntent, PendingIntent.FLAG_IMMUTABLE);
-        Notification notification =
-                new Notification.Builder(this, getString(R.string.notification_channel))
-                        .setContentTitle(getString(R.string.app_name))
-                        .setContentText(getString(R.string.notification_text))
-                        .setSmallIcon(R.drawable.antygarb_notification_icon)
-                        .setContentIntent(pendingIntent)
-                        .build();
-        startForeground(1, notification);
-    }
+        notificationManager = NotificationManagerCompat.from(this);
 
-    private void enableStopIntentFilter() {
-        BroadcastReceiver receiver= new BroadcastReceiver() {
+        BroadcastReceiver stopReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 stopService();
             }
         };
-
         IntentFilter filter = new IntentFilter();
-        filter.addAction("net.radekw8733.Antygarb.ANTYGARB_SERVICE_EXIT");
-        registerReceiver(receiver, filter);
-    }
+        filter.addAction("net.radekw8733.Antygarb.ANTYGARB_EXIT");
+        registerReceiver(stopReceiver, filter);
 
-    private void loadMovenetModel() {
-        try {
-            model = LiteModelMovenetSingleposeLightning3.newInstance(this);
-        }
-        catch (IOException e) {
-            model.close();
-            Log.e(getString(R.string.app_name) + " TF", e.toString());
-        }
-    }
-
-    private void setupCamera() {
-        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-        cameraProviderFuture.addListener(() -> {
-            try {
-                cameraProvider = cameraProviderFuture.get();
-                setupLifecycle(cameraProvider);
-            }
-            catch (Exception ignored) {}
-        }, ContextCompat.getMainExecutor(this));
-    }
-
-    private void setupLifecycle(ProcessCameraProvider cameraProvider) {
-        CameraSelector cameraSelector = new CameraSelector.Builder()
-                .requireLensFacing(CameraSelector.LENS_FACING_FRONT).build();
-
-        camera = cameraProvider.bindToLifecycle((LifecycleOwner) this, cameraSelector);
-    }
-
-    @Override
-    public IBinder onBind(Intent intent) {
-        // TODO: Return the communication channel to the service.
-        throw new UnsupportedOperationException("Not yet implemented");
+        Intent backIntent = new Intent("net.radekw8733.Antygarb.ANTYGARB_EXIT");
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 0, backIntent, PendingIntent.FLAG_IMMUTABLE);
+        Notification notification =
+                new Notification.Builder(this, getString(R.string.service_notification_channel))
+                        .setContentTitle(getString(R.string.app_name))
+                        .setContentText(getString(R.string.service_notification_text))
+                        .setSmallIcon(R.drawable.antygarb_notification_icon)
+                        .setColor(Color.rgb(0, 0, 255))
+                        .setColorized(true)
+                        .setContentIntent(pendingIntent)
+                        .build();
+        startForeground(1, notification);
     }
 }

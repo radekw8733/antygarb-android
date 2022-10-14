@@ -2,7 +2,7 @@ package net.radekw8733.antygarb;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
+import androidx.camera.view.PreviewView;
 
 import android.Manifest;
 import android.app.NotificationChannel;
@@ -17,10 +17,8 @@ import android.graphics.drawable.ShapeDrawable;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewOverlay;
-import android.widget.Button;
 import android.widget.TextView;
 
-import com.google.android.material.button.MaterialButton;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
@@ -28,7 +26,7 @@ import java.util.Map;
 
 public class MainActivity extends AppCompatActivity implements KeypointsReturn {
     private CameraInferenceUtil util;
-    private CameraInferenceUtil.CalibratedPose calibratedPose = new CameraInferenceUtil.CalibratedPose();
+    public static CameraInferenceUtil.CalibratedPose calibratedPose = new CameraInferenceUtil.CalibratedPose();
     private Map<String, CameraInferenceUtil.Keypoint> lastPose;
     private ViewOverlay overlay;
 
@@ -47,19 +45,25 @@ public class MainActivity extends AppCompatActivity implements KeypointsReturn {
     }
 
     private void setupNotificationChannel() {
-        CharSequence name = getString(R.string.notification_channel);
-        int importance = NotificationManager.IMPORTANCE_DEFAULT;
-        NotificationChannel channel = new NotificationChannel(getString(R.string.notification_channel), name, importance);
-        channel.setDescription(getString(R.string.notification_text));
         NotificationManager notificationManager = getSystemService(NotificationManager.class);
+
+        // busy notification channel
+        int importance = NotificationManager.IMPORTANCE_LOW;
+        NotificationChannel channel = new NotificationChannel(getString(R.string.service_notification_channel), getString(R.string.service_notification_channel), importance);
+        channel.setDescription(getString(R.string.service_notification_text));
         notificationManager.createNotificationChannel(channel);
+
+        // bad posture notification channel
+        int notifImportance = NotificationManager.IMPORTANCE_HIGH;
+        NotificationChannel notifChannel = new NotificationChannel(getString(R.string.notification_channel), getString(R.string.notification_channel), importance);
+        notifChannel.setDescription(getString(R.string.service_notification_text));
+        notificationManager.createNotificationChannel(notifChannel);
     }
 
     private void enableStopIntentFilter() {
         BroadcastReceiver receiver= new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                stopService();
                 finishAndRemoveTask();
             }
         };
@@ -122,7 +126,7 @@ public class MainActivity extends AppCompatActivity implements KeypointsReturn {
                 calibratedPose.leftShoulder = lastPose.get("left_shoulder");
                 calibratedPose.rightShoulder = lastPose.get("right_shoulder");
 
-                calibratedPose.shoulderLevel = Math.abs(leftShoulder.y - rightShoulder.y);
+                calibratedPose.shoulderLevel = Math.abs(Math.round(leftShoulder.y * 100) - Math.round(rightShoulder.y * 100));
 
                 calibratedPose.isCalibrated = true;
             }
@@ -131,9 +135,12 @@ public class MainActivity extends AppCompatActivity implements KeypointsReturn {
 
     public void returnKeypoints(Map<String, CameraInferenceUtil.Keypoint> keypoints) {
         lastPose = keypoints;
+        PreviewView previewView = findViewById(R.id.previewView);
+        int width = previewView.getWidth();
+        int height = previewView.getHeight();
         for (CameraInferenceUtil.Keypoint point : keypoints.values()) {
             if (point.confidence > 30) {
-                ShapeDrawable drawable = util.newPoint(point.x, point.y);
+                ShapeDrawable drawable = util.newPoint(Math.round(point.x * width), Math.round(point.y * height));
                 overlay.add(drawable);
             }
         }
@@ -155,6 +162,9 @@ public class MainActivity extends AppCompatActivity implements KeypointsReturn {
 
     @Override
     protected void onResume() {
+        if (CameraBackgroundService.calibratedPose != null) {
+            calibratedPose = CameraBackgroundService.calibratedPose;
+        }
         stopService();
         super.onResume();
     }
@@ -164,13 +174,15 @@ public class MainActivity extends AppCompatActivity implements KeypointsReturn {
             stopService();
         }
 
-        Intent intent = new Intent(this, CameraBackgroundService.class);
-        startForegroundService(intent);
+        if (calibratedPose.isCalibrated) {
+            Intent intent = new Intent(this, CameraBackgroundService.class);
+            startForegroundService(intent);
+        }
     }
 
     private void stopService() {
         Intent intent = new Intent(this, CameraBackgroundService.class);
-        intent.setAction("net.radekw8733.Antygarb.ANTYGARB_SERVICE_EXIT");
-        sendBroadcast(intent);
+        intent.setClass(this, CameraBackgroundService.class);
+        stopService(intent);
     }
 }
