@@ -50,13 +50,11 @@ public class MainActivity extends AppCompatActivity implements KeypointsReturn {
         // busy notification channel
         int importance = NotificationManager.IMPORTANCE_LOW;
         NotificationChannel channel = new NotificationChannel(getString(R.string.service_notification_channel), getString(R.string.service_notification_channel), importance);
-        channel.setDescription(getString(R.string.service_notification_text));
         notificationManager.createNotificationChannel(channel);
 
         // bad posture notification channel
         int notifImportance = NotificationManager.IMPORTANCE_HIGH;
-        NotificationChannel notifChannel = new NotificationChannel(getString(R.string.notification_channel), getString(R.string.notification_channel), importance);
-        notifChannel.setDescription(getString(R.string.service_notification_text));
+        NotificationChannel notifChannel = new NotificationChannel(getString(R.string.notification_channel), getString(R.string.notification_channel), notifImportance);
         notificationManager.createNotificationChannel(notifChannel);
     }
 

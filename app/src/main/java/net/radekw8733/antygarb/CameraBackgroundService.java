@@ -32,6 +32,7 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
         calibratedPose = MainActivity.calibratedPose;
 
         enableBusyNotification();
+        addReceiver();
 
         util = new CameraInferenceUtil(this);
         util.setKeypointCallback(this);
@@ -58,10 +59,14 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
     }
 
     private void sendNotification() {
-        Notification notification = new Notification.Builder(this, "Powiadomienia o złej postawie")
+        Intent intent = new Intent("net.radekw8733.Antygarb.ANTYGARB_DISMISS_NOTIFICATION");
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(this, 1, intent, PendingIntent.FLAG_IMMUTABLE);
+
+        Notification notification = new Notification.Builder(this, getString(R.string.notification_channel))
                 .setContentTitle(getString(R.string.app_name))
                 .setContentText(getString(R.string.notification_text))
                 .setSmallIcon(R.drawable.antygarb_notification_icon)
+                .setContentIntent(pendingIntent)
                 .setVisibility(Notification.VISIBILITY_PUBLIC)
                 .build();
 
@@ -72,10 +77,22 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
         notificationManager.cancel(notificationID);
     }
 
+    private void addReceiver() {
+        BroadcastReceiver receiver = new BroadcastReceiver() {
+            @Override
+            public void onReceive(Context context, Intent intent) {
+                removeNotification();
+            }
+        };
+        IntentFilter filter = new IntentFilter();
+        filter.addAction("net.radekw8733.Antygarb.ANTYGARB_DISMISS_NOTIFICATION");
+        registerReceiver(receiver, filter);
+    }
+
     public void returnKeypoints(Map<String, CameraInferenceUtil.Keypoint> keypoints) {
         if (keypoints.size() > 0) {
             if (!util.estimatePose(keypoints, calibratedPose)) {
-                if (wrongPostureCounter > 6) {
+                if (wrongPostureCounter >= 6) {
                     // if wrong posture is through 30s of time, send notification
                     sendNotification();
                     wrongPostureCounter = 0;
