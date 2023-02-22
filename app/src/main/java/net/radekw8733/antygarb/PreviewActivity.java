@@ -3,6 +3,7 @@ package net.radekw8733.antygarb;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.view.PreviewView;
+import androidx.room.Room;
 
 import android.Manifest;
 import android.app.NotificationChannel;
@@ -30,13 +31,19 @@ public class MainActivity extends AppCompatActivity implements KeypointsReturn {
     private Map<String, CameraInferenceUtil.Keypoint> lastPose;
     private ViewOverlay overlay;
 
+    private static UsageTimeDatabase usageTimeDatabase;
+    public static UsageTimeDao usageTimeDao;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         DynamicColors.applyToActivityIfAvailable(this);
         setContentView(R.layout.activity_camera);
-        overlay = findViewById(R.id.previewView).getOverlay();
 
+        usageTimeDatabase = Room.databaseBuilder(getApplicationContext(), UsageTimeDatabase.class, "antygarb-usage-time-db").build();
+        usageTimeDao = usageTimeDatabase.usageTimeDao();
+
+        overlay = findViewById(R.id.previewView).getOverlay();
         util = new CameraInferenceUtil(this, findViewById(R.id.previewView));
         util.setKeypointCallback(this);
         setupNotificationChannel();
@@ -79,7 +86,7 @@ public class MainActivity extends AppCompatActivity implements KeypointsReturn {
             new MaterialAlertDialogBuilder(MainActivity.this)
                     .setTitle(R.string.dialog_title)
                     .setMessage(R.string.dialog_explanation)
-                    .setIcon(android.R.drawable.ic_dialog_info)
+                    .setIcon(R.drawable.videocam)
                     .setPositiveButton(R.string.dialog_ok, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {

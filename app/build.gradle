@@ -32,6 +32,8 @@ android {
 }
 
 dependencies {
+    implementation 'androidx.room:room-runtime:2.5.0'
+    annotationProcessor 'androidx.room:room-compiler:2.5.0'
     implementation 'androidx.camera:camera-core:1.1.0'
     implementation 'androidx.camera:camera-view:1.1.0'
     implementation 'androidx.camera:camera-lifecycle:1.1.0'
