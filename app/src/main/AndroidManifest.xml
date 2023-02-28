@@ -12,25 +12,22 @@
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Material3.DayNight.NoActionBar"
         tools:targetApi="33">
-
-        <service
-            android:name=".CameraBackgroundService"
-            android:foregroundServiceType="camera"
-            android:enabled="true"
-            android:exported="false" />
-
         <activity
-            android:name=".MainActivity"
+            android:name=".PreviewActivity"
             android:exported="true"
-            android:screenOrientation="portrait">
+            android:theme="@style/Theme.Antygarb">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".CameraBackgroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="camera" />
     </application>
 
 </manifest>

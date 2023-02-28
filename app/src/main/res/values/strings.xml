@@ -14,4 +14,7 @@
 
     <string name="activity_button_calibrate">Kalibruj</string>
     <string name="activity_status_text">Popraw swoją postawę!</string>
+
+    <string name="bottom_navigation_item_preview">Podgląd</string>
+    <string name="bottom_navigation_item_statistics">Historia</string>
 </resources>

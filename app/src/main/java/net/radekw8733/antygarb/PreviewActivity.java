@@ -3,7 +3,6 @@ package net.radekw8733.antygarb;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.view.PreviewView;
-import androidx.room.Room;
 
 import android.Manifest;
 import android.app.NotificationChannel;
@@ -25,25 +24,19 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
 import java.util.Map;
 
-public class MainActivity extends AppCompatActivity implements KeypointsReturn {
+public class PreviewActivity extends AppCompatActivity implements KeypointsReturn {
     private CameraInferenceUtil util;
     public static CameraInferenceUtil.CalibratedPose calibratedPose = new CameraInferenceUtil.CalibratedPose();
     private Map<String, CameraInferenceUtil.Keypoint> lastPose;
     private ViewOverlay overlay;
-
-    private static UsageTimeDatabase usageTimeDatabase;
-    public static UsageTimeDao usageTimeDao;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         DynamicColors.applyToActivityIfAvailable(this);
         setContentView(R.layout.activity_camera);
-
-        usageTimeDatabase = Room.databaseBuilder(getApplicationContext(), UsageTimeDatabase.class, "antygarb-usage-time-db").build();
-        usageTimeDao = usageTimeDatabase.usageTimeDao();
-
         overlay = findViewById(R.id.previewView).getOverlay();
+
         util = new CameraInferenceUtil(this, findViewById(R.id.previewView));
         util.setKeypointCallback(this);
         setupNotificationChannel();
@@ -83,10 +76,10 @@ public class MainActivity extends AppCompatActivity implements KeypointsReturn {
             util.setupCamera();
         }
         else {
-            new MaterialAlertDialogBuilder(MainActivity.this)
+            new MaterialAlertDialogBuilder(PreviewActivity.this)
                     .setTitle(R.string.dialog_title)
                     .setMessage(R.string.dialog_explanation)
-                    .setIcon(R.drawable.videocam)
+                    .setIcon(android.R.drawable.ic_dialog_info)
                     .setPositiveButton(R.string.dialog_ok, new DialogInterface.OnClickListener() {
                         @Override
                         public void onClick(DialogInterface dialogInterface, int i) {
@@ -103,7 +96,7 @@ public class MainActivity extends AppCompatActivity implements KeypointsReturn {
             util.setupCamera();
         }
         else {
-            new MaterialAlertDialogBuilder(MainActivity.this)
+            new MaterialAlertDialogBuilder(PreviewActivity.this)
                     .setTitle(R.string.dialog_title)
                     .setMessage(R.string.dialog_problem)
                     .setIcon(android.R.drawable.ic_dialog_alert)

@@ -19,6 +19,7 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
     private static CameraInferenceUtil util;
     public static CameraInferenceUtil.CalibratedPose calibratedPose;
     private NotificationManagerCompat notificationManager;
+    private BroadcastReceiver receiver;
     private static Timer timer;
     private int notificationID = (int) (Math.random() * 10000);
     private int wrongPostureCounter = 0;
@@ -29,7 +30,7 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         isRunning = true;
-        calibratedPose = MainActivity.calibratedPose;
+        calibratedPose = PreviewActivity.calibratedPose;
 
         enableBusyNotification();
         addReceiver();
@@ -78,7 +79,7 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
     }
 
     private void addReceiver() {
-        BroadcastReceiver receiver = new BroadcastReceiver() {
+        receiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
                 removeNotification();
@@ -110,6 +111,7 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
     private void stopService() {
         isRunning = false;
         timer.cancel();
+        unregisterReceiver(receiver);
         stopSelf();
     }
 

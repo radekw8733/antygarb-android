@@ -3,6 +3,13 @@ plugins {
 }
 
 android {
+    signingConfigs {
+        release {
+            storeFile file('/home/radke/keys.jks')
+            storePassword 'Halotoja1?'
+            keyAlias 'master key'
+        }
+    }
     namespace 'net.radekw8733.antygarb'
     compileSdk 33
 
