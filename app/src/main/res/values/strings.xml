@@ -1,20 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Anti-hump</string>
-
-    <string name="service_notification_channel">Detektor postawy</string>
-    <string name="service_notification_text">Aplikacja działa w tle i będzie powiadamiać cię o złej postawie. Kliknij tutaj aby ją zakończyć</string>
-
-    <string name="notification_channel">Powiadomienia o złej postawie</string>
-    <string name="notification_text">Twoja postawa jest nieprawidłowa. Wyprostuj się</string>
-
-    <string name="dialog_title">Dostęp do kamery</string>
-    <string name="dialog_explanation">Ta aplikacja używa dostępu do kamery do obliczania postawy ciała</string>
+    <string name="app_name">Antihump</string>
+    <string name="service_notification_channel">Posture detector</string>
+    <string name="service_notification_text">The application works in background and it will be notifying you about wrong posture. Click here to exit</string>
+    <string name="notification_channel">Posture notifications</string>
+    <string name="notification_text">Your posture is incorrect. Straighten up!</string>
+    <string name="dialog_title">Camera access</string>
+    <string name="dialog_explanation">This application uses camera access to calculate your posture</string>
     <string name="dialog_ok">OK</string>
-    <string name="dialog_problem">Aplikacja potrzebuje dostępu do kamery, inaczej nie będzie ona działać</string>
-
-    <string name="activity_button_calibrate">Kalibruj</string>
-    <string name="activity_status_text">Popraw swoją postawę!</string>
-
-    <string name="bottom_navigation_item_preview">Podgląd</string>
-    <string name="bottom_navigation_item_statistics">Historia</string>
+    <string name="dialog_problem">This application needs camera access to work properly</string>
+    <string name="activity_button_calibrate">Calibrate</string>
+    <string name="activity_status_text">Straighten up!</string>
+    <string name="bottom_navigation_item_preview">Preview</string>
+    <string name="bottom_navigation_item_statistics">History</string>
 </resources>

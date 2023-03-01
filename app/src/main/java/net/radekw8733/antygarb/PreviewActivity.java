@@ -3,6 +3,7 @@ package net.radekw8733.antygarb;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.view.PreviewView;
+import androidx.room.Room;
 
 import android.Manifest;
 import android.app.NotificationChannel;
@@ -14,6 +15,7 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.ShapeDrawable;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewOverlay;
@@ -22,11 +24,18 @@ import android.widget.TextView;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 public class PreviewActivity extends AppCompatActivity implements KeypointsReturn {
     private CameraInferenceUtil util;
     public static CameraInferenceUtil.CalibratedPose calibratedPose = new CameraInferenceUtil.CalibratedPose();
+    public static UsageTimeDatabase usageTimeDatabase;
+    private UsageTimeDao dao;
+    private UsageTimeEntry entry = new UsageTimeEntry();
     private Map<String, CameraInferenceUtil.Keypoint> lastPose;
     private ViewOverlay overlay;
 
@@ -36,12 +45,19 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
         DynamicColors.applyToActivityIfAvailable(this);
         setContentView(R.layout.activity_camera);
         overlay = findViewById(R.id.previewView).getOverlay();
+        usageTimeDatabase = Room.databaseBuilder(getApplicationContext(), UsageTimeDatabase.class, "UsageTimeDatabase").build();
+        dao = usageTimeDatabase.usageTimeDao();
+
+        entry.id = Math.abs(new Random().nextLong());
+        entry.appStarted = LocalDateTime.now();
+        entry.type = UsageTimeEntry.Type.APP;
 
         util = new CameraInferenceUtil(this, findViewById(R.id.previewView));
         util.setKeypointCallback(this);
+
         setupNotificationChannel();
         enableStopIntentFilter();
-        requestPermissions();
+        requestCameraAccess();
     }
 
     private void setupNotificationChannel() {
@@ -71,44 +87,80 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
         registerReceiver(receiver, filter);
     }
 
-    private void requestPermissions() {
+    private void requestCameraAccess() {
         if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
-            util.setupCamera();
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+                    util.setupCamera();
+                }
+                else {
+                    promptForPermissions();
+                }
+            }
+            else {
+                util.setupCamera();
+            }
         }
         else {
-            new MaterialAlertDialogBuilder(PreviewActivity.this)
-                    .setTitle(R.string.dialog_title)
-                    .setMessage(R.string.dialog_explanation)
-                    .setIcon(android.R.drawable.ic_dialog_info)
-                    .setPositiveButton(R.string.dialog_ok, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-                            requestPermissions(new String[] { Manifest.permission.CAMERA }, 1);
-                        }
-                    })
-                    .show();
+            promptForPermissions();
         }
+    }
+
+    private void promptForPermissions() {
+        new MaterialAlertDialogBuilder(PreviewActivity.this)
+                .setTitle(R.string.dialog_title)
+                .setMessage(R.string.dialog_explanation)
+                .setIcon(android.R.drawable.ic_dialog_info)
+                .setPositiveButton(R.string.dialog_ok, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        List<String> permissions = new ArrayList<String>();
+                        permissions.add(Manifest.permission.CAMERA);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            permissions.add(Manifest.permission.POST_NOTIFICATIONS);
+                        }
+                        String[] permissionsArray = new String[2];
+                        permissions.toArray(permissionsArray);
+                        requestPermissions(permissionsArray, 1);
+                    }
+                })
+                .show();
     }
 
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+        // lets assume that permissions order is the same as in request, probably point of bug
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED && permissions[0].equals(Manifest.permission.CAMERA)) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (grantResults[1] == PackageManager.PERMISSION_GRANTED && permissions[1].equals(Manifest.permission.POST_NOTIFICATIONS)) {
+                    util.setupCamera();
+                    return;
+                }
+                else {
+                    failedPermissionPrompt();
+                    return;
+                }
+            }
             util.setupCamera();
         }
         else {
-            new MaterialAlertDialogBuilder(PreviewActivity.this)
-                    .setTitle(R.string.dialog_title)
-                    .setMessage(R.string.dialog_problem)
-                    .setIcon(android.R.drawable.ic_dialog_alert)
-                    .setPositiveButton(R.string.dialog_ok, new DialogInterface.OnClickListener() {
-                        @Override
-                        public void onClick(DialogInterface dialogInterface, int i) {
-                            finish();
-                        }
-                    })
-                    .show();
+            failedPermissionPrompt();
         }
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
+
+    private void failedPermissionPrompt() {
+        new MaterialAlertDialogBuilder(PreviewActivity.this)
+                .setTitle(R.string.dialog_title)
+                .setMessage(R.string.dialog_problem)
+                .setIcon(android.R.drawable.ic_dialog_alert)
+                .setPositiveButton(R.string.dialog_ok, new DialogInterface.OnClickListener() {
+                    @Override
+                    public void onClick(DialogInterface dialogInterface, int i) {
+                        finish();
+                    }
+                })
+                .show();
     }
 
     public void onClick(View v) {
@@ -154,6 +206,10 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
 
     @Override
     protected void onPause() {
+        entry.appStopped = LocalDateTime.now();
+        new Thread(() -> {
+            dao.insert(entry);
+        }).start();
         startService();
         super.onPause();
     }
