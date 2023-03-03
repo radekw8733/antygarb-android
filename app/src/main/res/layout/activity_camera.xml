@@ -7,27 +7,50 @@
     android:fitsSystemWindows="true"
     tools:context=".PreviewActivity">
 
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/materialToolbar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="?attr/colorOnSurfaceInverse"
+        android:minHeight="?attr/actionBarSize"
+        android:theme="?attr/actionBarTheme"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <xyz.schwaab.avvylib.AvatarView
+            android:id="@+id/profilePicture"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_margin="16dp"
+            android:layout_gravity="end"
+            android:adjustViewBounds="true"
+            app:avvy_border_color="#0cffd0"
+            app:avvy_border_color_end="#0016fd"
+            app:avvy_border_thickness="2dp" />
+    </androidx.appcompat.widget.Toolbar>
+
     <com.google.android.material.card.MaterialCardView
-        style="@style/Widget.Material3.CardView.Outlined"
         android:id="@+id/card"
+        style="@style/Widget.Material3.CardView.Outlined"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_margin="16dp"
         app:cardCornerRadius="16dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintTop_toBottomOf="@+id/materialToolbar">
 
         <androidx.appcompat.widget.LinearLayoutCompat
-            android:orientation="vertical"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content">
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
 
             <androidx.camera.view.PreviewView
                 android:id="@+id/previewView"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_margin="16dp"/>
+                android:layout_margin="16dp" />
 
             <TextView
                 android:id="@+id/statusText"
@@ -37,7 +60,7 @@
                 android:text="@string/activity_status_text"
                 android:textAlignment="center"
                 android:textSize="20sp"
-                android:visibility="invisible" />
+                android:visibility="gone" />
         </androidx.appcompat.widget.LinearLayoutCompat>
 
     </com.google.android.material.card.MaterialCardView>

@@ -3,7 +3,10 @@ package net.radekw8733.antygarb;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.view.PreviewView;
+import androidx.core.content.ContextCompat;
 import androidx.room.Room;
+import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkRequest;
 
 import android.Manifest;
 import android.app.NotificationChannel;
@@ -13,24 +16,42 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.drawable.ShapeDrawable;
 import android.os.Build;
 import android.os.Bundle;
+import android.util.JsonReader;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewOverlay;
 import android.widget.TextView;
 
+import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
+import java.util.concurrent.TimeUnit;
+
+import xyz.schwaab.avvylib.AvatarView;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 public class PreviewActivity extends AppCompatActivity implements KeypointsReturn {
+    public static String webserverUrl = "http://192.168.1.2:8100/v1";
     private CameraInferenceUtil util;
     public static CameraInferenceUtil.CalibratedPose calibratedPose = new CameraInferenceUtil.CalibratedPose();
     public static UsageTimeDatabase usageTimeDatabase;
@@ -38,6 +59,7 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
     private UsageTimeEntry entry = new UsageTimeEntry();
     private Map<String, CameraInferenceUtil.Keypoint> lastPose;
     private ViewOverlay overlay;
+    private SharedPreferences prefs;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -45,6 +67,7 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
         DynamicColors.applyToActivityIfAvailable(this);
         setContentView(R.layout.activity_camera);
         overlay = findViewById(R.id.previewView).getOverlay();
+
         usageTimeDatabase = Room.databaseBuilder(getApplicationContext(), UsageTimeDatabase.class, "UsageTimeDatabase").build();
         dao = usageTimeDatabase.usageTimeDao();
 
@@ -52,12 +75,56 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
         entry.appStarted = LocalDateTime.now();
         entry.type = UsageTimeEntry.Type.APP;
 
+        ((AvatarView) findViewById(R.id.profilePicture)).setImageResource(R.drawable.avatar);
+
         util = new CameraInferenceUtil(this, findViewById(R.id.previewView));
         util.setKeypointCallback(this);
 
+        prefs = getSharedPreferences("Keys", MODE_PRIVATE);
+
+        firstLaunch();
         setupNotificationChannel();
         enableStopIntentFilter();
         requestCameraAccess();
+    }
+
+    private void firstLaunch() {
+        if (!prefs.getBoolean("setup_done", false)) {
+//            prefs.edit().putLong("uid", Math.abs(new Random().nextLong())).apply();
+
+            requestUserAuth();
+
+            WorkRequest workRequest = new PeriodicWorkRequest.Builder(StatisticsUploadWorker.class,
+                    1, TimeUnit.DAYS,
+                    1, TimeUnit.HOURS)
+                    .setInitialDelay(Duration.ofMinutes(1))
+                    .build();
+        }
+    }
+
+    private void requestUserAuth() {
+        OkHttpClient client = new OkHttpClient();
+        Request request = new Request.Builder().url(webserverUrl + "/new-user").get().build();
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                Log.e("Antygarb_Auth", e.toString());
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                try {
+                    JSONObject json = new JSONObject(response.body().string());
+                    prefs.edit()
+                            .putLong("client_uid", json.getLong("client_uid"))
+                            .putString("client_token", json.getString("client_token"))
+                            .putBoolean("setup_done", true)
+                            .apply();
+                } catch (JSONException e) {
+                    Log.e("Antygarb_Auth", e.toString());
+                }
+            }
+        });
     }
 
     private void setupNotificationChannel() {
@@ -196,22 +263,23 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
         }
 
         TextView text = findViewById(R.id.statusText);
+        MaterialCardView card = findViewById(R.id.card);
         if (!util.estimatePose(keypoints, calibratedPose)) {
             text.setVisibility(View.VISIBLE);
         }
         else {
-            text.setVisibility(View.INVISIBLE);
+            text.setVisibility(View.GONE);
         }
     }
 
     @Override
-    protected void onPause() {
+    protected void onStop() {
         entry.appStopped = LocalDateTime.now();
         new Thread(() -> {
             dao.insert(entry);
         }).start();
         startService();
-        super.onPause();
+        super.onStop();
     }
 
     @Override

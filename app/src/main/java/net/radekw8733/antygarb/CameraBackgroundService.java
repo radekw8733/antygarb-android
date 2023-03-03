@@ -116,7 +116,7 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
     public void returnKeypoints(Map<String, CameraInferenceUtil.Keypoint> keypoints) {
         if (keypoints.size() > 0) {
             if (!util.estimatePose(keypoints, calibratedPose)) {
-                if (wrongPostureCounter >= 1) {
+                if (wrongPostureCounter >= 6) {
                     // if wrong posture is through 30s of time, send notification
                     sendNotification();
                     wrongPostureCounter = 0;
