@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 @Entity
 public class UsageTimeEntry {
-    @PrimaryKey
+    @PrimaryKey(autoGenerate = true)
     public long id;
 
     @ColumnInfo(name = "app_type")

@@ -42,7 +42,6 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
         isRunning = true;
         calibratedPose = PreviewActivity.calibratedPose;
 
-        entry.id = Math.abs(new Random().nextLong());
         entry.appStarted = LocalDateTime.now();
         entry.type = UsageTimeEntry.Type.SERVICE;
 
@@ -138,8 +137,6 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
             dao.insert(entry);
         }).start();
         timer.cancel();
-        unregisterReceiver(receiver);
-        unregisterReceiver(stopReceiver);
         stopSelf();
     }
 

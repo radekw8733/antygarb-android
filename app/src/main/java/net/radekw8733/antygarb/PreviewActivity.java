@@ -5,8 +5,14 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.room.Room;
+import androidx.work.ExistingPeriodicWorkPolicy;
+import androidx.work.ListenableWorker;
+import androidx.work.OutOfQuotaPolicy;
 import androidx.work.PeriodicWorkRequest;
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
 import androidx.work.WorkRequest;
+import androidx.work.WorkerParameters;
 
 import android.Manifest;
 import android.app.NotificationChannel;
@@ -31,18 +37,25 @@ import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.IOException;
+import java.time.DateTimeException;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
+import okhttp3.MediaType;
+import okhttp3.RequestBody;
 import xyz.schwaab.avvylib.AvatarView;
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -71,7 +84,6 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
         usageTimeDatabase = Room.databaseBuilder(getApplicationContext(), UsageTimeDatabase.class, "UsageTimeDatabase").build();
         dao = usageTimeDatabase.usageTimeDao();
 
-        entry.id = Math.abs(new Random().nextLong());
         entry.appStarted = LocalDateTime.now();
         entry.type = UsageTimeEntry.Type.APP;
 
@@ -90,21 +102,22 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
 
     private void firstLaunch() {
         if (!prefs.getBoolean("setup_done", false)) {
-//            prefs.edit().putLong("uid", Math.abs(new Random().nextLong())).apply();
-
             requestUserAuth();
 
-            WorkRequest workRequest = new PeriodicWorkRequest.Builder(StatisticsUploadWorker.class,
+            PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(StatisticsUploadWorker.class,
                     1, TimeUnit.DAYS,
                     1, TimeUnit.HOURS)
-                    .setInitialDelay(Duration.ofMinutes(1))
                     .build();
+            WorkManager workManager = WorkManager.getInstance(this);
+//            workManager.cancelAllWork();     for removing older workers
+//            workManager.pruneWork();
+            workManager.enqueueUniquePeriodicWork("StatWorker", ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE, workRequest);
         }
     }
 
     private void requestUserAuth() {
         OkHttpClient client = new OkHttpClient();
-        Request request = new Request.Builder().url(webserverUrl + "/new-user").get().build();
+        Request request = new Request.Builder().url(webserverUrl + "/new-apiuser").get().build();
         client.newCall(request).enqueue(new Callback() {
             @Override
             public void onFailure(@NonNull Call call, @NonNull IOException e) {
@@ -125,6 +138,59 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
                 }
             }
         });
+    }
+
+    private void submitAppUsage() {
+        new Thread(() -> {
+            OkHttpClient client = new OkHttpClient();
+            Log.i("Antygarb_StatWorker", "Worker start");
+            long clientUID = prefs.getLong("client_uid", 0);
+            String clientToken = prefs.getString("client_token", "");
+
+            dao = PreviewActivity.usageTimeDatabase.usageTimeDao();
+            List<UsageTimeEntry> entries = dao.getAllEntries();
+            Log.i("Antygarb_StatWorker", "Usage time retrieved");
+
+            try {
+                JSONArray entriesJson = new JSONArray();
+                LocalDateTime last_time_uploaded = LocalDateTime.parse(prefs.getString("last_appusage_upload_time", "1970-01-01T00:00:00"));
+
+                for (UsageTimeEntry entry : entries) {
+                    if (last_time_uploaded.isBefore(entry.appStarted)) {
+                        JSONObject object = new JSONObject();
+                        object.put("type", entry.type.toString());
+                        object.put("app_started", entry.appStarted);
+                        object.put("app_stopped", entry.appStopped);
+                        entriesJson.put(object);
+                    }
+                }
+                if (entriesJson.length() != 0) {
+                    JSONObject jsonUpload = new JSONObject()
+                            .put("client_uid", clientUID)
+                            .put("client_token", clientToken)
+                            .put("entries", entriesJson);
+
+                    RequestBody requestBody = RequestBody.create(
+                            jsonUpload.toString(),
+                            MediaType.parse("application/json; charset=utf-8")
+                    );
+                    Request request = new Request.Builder()
+                            .url(PreviewActivity.webserverUrl + "/upload-usage")
+                            .post(requestBody)
+                            .build();
+                    Response response = client.newCall(request).execute();
+                    if (response.code() == 200) {
+                        prefs.edit().putString("last_appusage_upload_time", LocalDateTime.now().toString()).apply();
+                    } else {
+                        Log.e("Antygarb_Auth", response.toString());
+                    }
+                }
+            } catch (JSONException e) {
+                Log.e("Antygarb_Auth", e.getLocalizedMessage());
+            } catch (IOException e) {
+                Log.e("Antygarb_Auth", e.getLocalizedMessage());
+            }
+        }).start();
     }
 
     private void setupNotificationChannel() {
@@ -232,6 +298,11 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
 
     public void onClick(View v) {
         setCalibratedPose();
+    }
+
+    public void profileOnClick(View v) {
+        Intent intent = new Intent(this, LoginActivity.class);
+        startActivity(intent);
     }
 
     private void setCalibratedPose() {

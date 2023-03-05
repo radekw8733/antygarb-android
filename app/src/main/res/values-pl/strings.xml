@@ -17,4 +17,8 @@
 
     <string name="bottom_navigation_item_preview">Podgląd</string>
     <string name="bottom_navigation_item_statistics">Historia</string>
+    <string name="loginactivity_header">Zaloguj się do swojego profilu</string>
+    <string name="loginactivity_button_login">Zaloguj się</string>
+    <string name="loginactivity_email">E-mail</string>
+    <string name="loginactivity_password">Hasło</string>
 </resources>

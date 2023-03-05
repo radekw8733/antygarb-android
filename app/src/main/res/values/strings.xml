@@ -13,4 +13,8 @@
     <string name="activity_status_text">Straighten up!</string>
     <string name="bottom_navigation_item_preview">Preview</string>
     <string name="bottom_navigation_item_statistics">History</string>
+    <string name="loginactivity_header">Log in to your profile</string>
+    <string name="loginactivity_button_login">Log in</string>
+    <string name="loginactivity_email">E-mail</string>
+    <string name="loginactivity_password">Password</string>
 </resources>

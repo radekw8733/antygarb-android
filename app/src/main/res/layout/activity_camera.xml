@@ -25,6 +25,7 @@
             android:layout_margin="16dp"
             android:layout_gravity="end"
             android:adjustViewBounds="true"
+            android:onClick="profileOnClick"
             app:avvy_border_color="#0cffd0"
             app:avvy_border_color_end="#0016fd"
             app:avvy_border_thickness="2dp" />
