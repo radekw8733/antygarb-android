@@ -21,4 +21,5 @@
     <string name="loginactivity_button_login">Zaloguj się</string>
     <string name="loginactivity_email">E-mail</string>
     <string name="loginactivity_password">Hasło</string>
+    <string name="loginactivity_no_account_question">Nie masz konta?</string>
 </resources>

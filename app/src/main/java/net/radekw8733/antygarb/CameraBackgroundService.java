@@ -8,28 +8,30 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Color;
 import android.os.Build;
-import android.util.Log;
 
 import androidx.core.app.NotificationManagerCompat;
 import androidx.lifecycle.LifecycleService;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.Random;
 import java.util.Timer;
 import java.util.TimerTask;
 
 public class CameraBackgroundService extends LifecycleService implements KeypointsReturn{
     private static CameraInferenceUtil util;
     public static CameraInferenceUtil.CalibratedPose calibratedPose;
-    private UsageTimeDao dao = PreviewActivity.usageTimeDatabase.usageTimeDao();
-    private UsageTimeEntry entry = new UsageTimeEntry();
+    private UsageTimeDao usageTimeDao = PreviewActivity.usageTimeDatabase.usageTimeDao();
+    private UsageTimeEntry usageTimeEntry = new UsageTimeEntry();
     private NotificationManagerCompat notificationManager;
     private BroadcastReceiver receiver;
     private BroadcastReceiver stopReceiver;
     private static Timer timer;
     private int notificationID = (int) (Math.random() * 10000);
     private int wrongPostureCounter = 0;
+
+    private long wrongTotalPoses = 0;
+    private long correctTotalPoses = 0;
     public static boolean isRunning = false; // static variable to avoid launching multiple services
 
     public CameraBackgroundService() {}
@@ -42,8 +44,8 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
         isRunning = true;
         calibratedPose = PreviewActivity.calibratedPose;
 
-        entry.appStarted = LocalDateTime.now();
-        entry.type = UsageTimeEntry.Type.SERVICE;
+        usageTimeEntry.appStarted = LocalDateTime.now();
+        usageTimeEntry.type = UsageTimeEntry.Type.SERVICE;
 
         util = new CameraInferenceUtil(this);
         util.setKeypointCallback(this);
@@ -115,6 +117,7 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
     public void returnKeypoints(Map<String, CameraInferenceUtil.Keypoint> keypoints) {
         if (keypoints.size() > 0) {
             if (!util.estimatePose(keypoints, calibratedPose)) {
+                wrongTotalPoses++;
                 if (wrongPostureCounter >= 6) {
                     // if wrong posture is through 30s of time, send notification
                     sendNotification();
@@ -125,6 +128,7 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
             else {
                 // reset counter
                 wrongPostureCounter = 0;
+                correctTotalPoses++;
                 removeNotification();
             }
         }
@@ -132,12 +136,20 @@ public class CameraBackgroundService extends LifecycleService implements Keypoin
 
     private void stopService() {
         isRunning = false;
-        entry.appStopped = LocalDateTime.now();
+        usageTimeEntry.appStopped = LocalDateTime.now();
+        usageTimeEntry.correctPoses = correctTotalPoses;
+        usageTimeEntry.incorrectPoses = wrongTotalPoses;
+        usageTimeEntry.correctToIncorrectPoseNormalised = (float) correctTotalPoses / (wrongTotalPoses + 1);
+
         new Thread(() -> {
-            dao.insert(entry);
+            usageTimeDao.insert(usageTimeEntry);
+            timer.cancel();
+            stopSelf();
         }).start();
-        timer.cancel();
-        stopSelf();
+    }
+
+    private void savePostureStat() {
+
     }
 
     private void enableBusyNotification() {

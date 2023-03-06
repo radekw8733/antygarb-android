@@ -26,6 +26,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
+import androidx.room.Room;
 
 import com.google.common.util.concurrent.ListenableFuture;
 

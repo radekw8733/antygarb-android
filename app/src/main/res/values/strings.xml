@@ -17,4 +17,5 @@
     <string name="loginactivity_button_login">Log in</string>
     <string name="loginactivity_email">E-mail</string>
     <string name="loginactivity_password">Password</string>
+    <string name="loginactivity_no_account_question">Don\'t have account?</string>
 </resources>

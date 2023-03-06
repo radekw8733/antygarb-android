@@ -36,55 +36,61 @@ public class StatisticsUploadWorker extends Worker {
     @NonNull
     @Override
     public Result doWork() {
-        OkHttpClient client = new OkHttpClient();
-        Log.i("Antygarb_StatWorker", "Worker start");
-        long clientUID = prefs.getLong("client_uid", 0);
-        String clientToken = prefs.getString("client_token", "");
+        if (!prefs.getBoolean("setup_done", false)) {
+            OkHttpClient client = new OkHttpClient();
+            Log.i("Antygarb_StatWorker", "Worker start");
+            long clientUID = prefs.getLong("client_uid", 0);
+            String clientToken = prefs.getString("client_token", "");
 
-        dao = PreviewActivity.usageTimeDatabase.usageTimeDao();
-        List<UsageTimeEntry> entries = dao.getAllEntries();
-        Log.i("Antygarb_StatWorker", "Usage time retrieved");
+            dao = PreviewActivity.usageTimeDatabase.usageTimeDao();
+            List<UsageTimeEntry> entries = dao.getAllEntries();
+            Log.i("Antygarb_StatWorker", "Usage time retrieved");
 
-        try {
-            JSONArray entriesJson = new JSONArray();
-            LocalDateTime last_time_uploaded = LocalDateTime.parse(prefs.getString("last_appusage_upload_time", "1970-01-01T00:00:00"));
+            try {
+                JSONArray entriesJson = new JSONArray();
+                LocalDateTime last_time_uploaded = LocalDateTime.parse(prefs.getString("last_appusage_upload_time", "1970-01-01T00:00:00"));
 
-            for (UsageTimeEntry entry : entries) {
-                if (last_time_uploaded.isBefore(entry.appStarted)) {
-                    JSONObject object = new JSONObject();
-                    object.put("type", entry.type.toString());
-                    object.put("app_started", entry.appStarted);
-                    object.put("app_stopped", entry.appStopped);
-                    entriesJson.put(object);
+                for (UsageTimeEntry entry : entries) {
+                    if (last_time_uploaded.isBefore(entry.appStarted)) {
+                        JSONObject object = new JSONObject();
+                        object.put("type", entry.type.toString());
+                        object.put("app_started", entry.appStarted);
+                        object.put("app_stopped", entry.appStopped);
+                        object.put("correct_poses", entry.correctPoses);
+                        object.put("incorrect_poses", entry.incorrectPoses);
+                        object.put("correct_to_incorrect", entry.correctToIncorrectPoseNormalised);
+                        entriesJson.put(object);
+                    }
                 }
-            }
-            if (entriesJson.length() != 0) {
-                JSONObject jsonUpload = new JSONObject()
-                        .put("client_uid", clientUID)
-                        .put("client_token", clientToken)
-                        .put("entries", entriesJson);
+                if (entriesJson.length() != 0) {
+                    JSONObject jsonUpload = new JSONObject()
+                            .put("client_uid", clientUID)
+                            .put("client_token", clientToken)
+                            .put("entries", entriesJson);
 
-                RequestBody requestBody = RequestBody.create(
-                        jsonUpload.toString(),
-                        MediaType.parse("application/json; charset=utf-8")
-                );
-                Request request = new Request.Builder()
-                        .url(PreviewActivity.webserverUrl + "/upload-usage")
-                        .post(requestBody)
-                        .build();
-                Response response = client.newCall(request).execute();
-                if (response.code() == 200) {
-                    prefs.edit().putString("last_appusage_upload_time", LocalDateTime.now().toString()).apply();
-                } else {
-                    Log.e("Antygarb_Auth", response.toString());
+                    RequestBody requestBody = RequestBody.create(
+                            jsonUpload.toString(),
+                            MediaType.parse("application/json; charset=utf-8")
+                    );
+                    Request request = new Request.Builder()
+                            .url(PreviewActivity.webserverUrl + "/upload-usage")
+                            .post(requestBody)
+                            .build();
+                    Response response = client.newCall(request).execute();
+                    if (response.code() == 200) {
+                        prefs.edit().putString("last_appusage_upload_time", LocalDateTime.now().toString()).apply();
+                    } else {
+                        Log.e("Antygarb_Auth", response.toString());
+                    }
                 }
+            } catch (JSONException e) {
+                Log.e("Antygarb_Auth", e.getLocalizedMessage());
+            } catch (IOException e) {
+                Log.e("Antygarb_Auth", e.getLocalizedMessage());
             }
-        } catch (JSONException e) {
-            Log.e("Antygarb_Auth", e.getLocalizedMessage());
-        } catch (IOException e) {
-            Log.e("Antygarb_Auth", e.getLocalizedMessage());
+
+            return Result.failure();
         }
-
         return Result.failure();
     }
 }

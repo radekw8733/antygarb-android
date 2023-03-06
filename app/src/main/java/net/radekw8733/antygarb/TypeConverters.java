@@ -2,6 +2,7 @@ package net.radekw8733.antygarb;
 
 import androidx.room.TypeConverter;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 public class TypeConverters {
