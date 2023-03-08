@@ -18,17 +18,30 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_margin="16dp"
+            android:text="@string/activity_status_text"
+            android:textAlignment="center"
+            android:textSize="20sp"
+            android:visibility="gone"/>
+
         <xyz.schwaab.avvylib.AvatarView
             android:id="@+id/profilePicture"
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:layout_margin="16dp"
+            android:layout_margin="8dp"
             android:layout_gravity="end"
-            android:adjustViewBounds="true"
             android:onClick="profileOnClick"
             android:scaleType="centerCrop"
-            app:avvy_border_color="#0cffd0"
-            app:avvy_border_color_end="#0016fd"
+            app:avvy_text="Demo Mo"
+            app:avvy_text_size="22sp"
+            app:avvy_text_color="#646464"
+            app:avvy_distance_to_border="0dp"
+            app:avvy_border_color="@color/colorPrimary"
+            app:avvy_border_color_end="@color/colorSecondary"
             app:avvy_border_thickness="2dp" />
     </androidx.appcompat.widget.Toolbar>
 
@@ -53,16 +66,6 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_margin="16dp" />
-
-            <TextView
-                android:id="@+id/statusText"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_margin="16dp"
-                android:text="@string/activity_status_text"
-                android:textAlignment="center"
-                android:textSize="20sp"
-                android:visibility="gone" />
         </androidx.appcompat.widget.LinearLayoutCompat>
 
     </com.google.android.material.card.MaterialCardView>

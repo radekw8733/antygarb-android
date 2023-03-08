@@ -21,5 +21,14 @@
     <string name="loginactivity_button_login">Zaloguj się</string>
     <string name="loginactivity_email">E-mail</string>
     <string name="loginactivity_password">Hasło</string>
-    <string name="loginactivity_no_account_question">Nie masz konta?</string>
+    <string name="loginactivity_error">Nieprawidłowy email lub hasło</string>
+    <string name="profile_dialog_account">Konto</string>
+    <string name="profile_dialog_defaultname">Nie jesteś zalogowany</string>
+    <string name="profile_dialog_loginbutton">Zaloguj się</string>
+    <string name="profile_dialog_registerbutton">Zarejestruj się</string>
+    <string name="registeractivity_header">Zarejestruj nowe konto</string>
+    <string name="registeractivity_button_login">Zarejestruj się</string>
+    <string name="registeractivity_first_name">Imię</string>
+    <string name="registeractivity_last_name">Nazwisko</string>
+    <string name="registeractivity_account_exists">Konto o takim adresie email już istnieje</string>
 </resources>
