@@ -61,7 +61,7 @@ import okhttp3.Request;
 import okhttp3.Response;
 
 public class PreviewActivity extends AppCompatActivity implements KeypointsReturn {
-    public static String webserverUrl = "https://radkerouter.ddns.net/api/v1";
+    public static String webserverUrl = "https://api.srv45036.seohost.com.pl/api/v1";
     private CameraInferenceUtil util;
     public static CameraInferenceUtil.CalibratedPose calibratedPose = new CameraInferenceUtil.CalibratedPose();
     public static UsageTimeDatabase usageTimeDatabase;
@@ -80,6 +80,7 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
         DynamicColors.applyToActivityIfAvailable(this);
         setContentView(R.layout.activity_camera);
         overlay = findViewById(R.id.previewView).getOverlay();
+        AntygarbServerConnector.setup(getApplicationContext());
 
         usageTimeDatabase = Room.databaseBuilder(getApplicationContext(), UsageTimeDatabase.class, "UsageTimeDatabase").build();
         dao = usageTimeDatabase.usageTimeDao();
@@ -104,8 +105,8 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
             requestUserAuth();
 
             PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(StatisticsUploadWorker.class,
-                    1, TimeUnit.DAYS,
-                    1, TimeUnit.HOURS)
+                    15, TimeUnit.MINUTES,
+                    0, TimeUnit.MINUTES)
                     .build();
             WorkManager workManager = WorkManager.getInstance(this);
 //            workManager.cancelAllWork();     for removing older workers

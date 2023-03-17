@@ -1,0 +1,105 @@
+package net.radekw8733.antygarb;
+
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.util.Log;
+
+import androidx.work.ListenableWorker;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.IOException;
+import java.time.LocalDateTime;
+import java.util.List;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
+public class AntygarbServerConnector {
+    private static Context context;
+    private static UsageTimeDao dao;
+    private static OkHttpClient client;
+    public static String webserverUrl = "https://api.srv45036.seohost.com.pl/api/v1";
+    private static SharedPreferences prefs;
+
+//    private AntygarbServerConnector() {};
+//    private static class AntygarbServerConnectorHolder {
+//        public static final AntygarbServerConnector instance = new AntygarbServerConnector();
+//    }
+//    public static AntygarbServerConnector getInstance() {
+//        return AntygarbServerConnectorHolder.instance;
+//    }
+
+    public static void setup(Context context){
+        AntygarbServerConnector.context = context;
+        prefs = context.getSharedPreferences("Keys", Context.MODE_PRIVATE);
+        client = new OkHttpClient();
+    }
+
+    public static boolean uploadStatistics() {
+        if (prefs.getBoolean("setup_done", false)) {
+            Log.i("Antygarb_StatWorker", "Worker start");
+            long clientUID = prefs.getLong("client_uid", 0);
+            String clientToken = prefs.getString("client_token", "");
+
+            dao = PreviewActivity.usageTimeDatabase.usageTimeDao();
+            List<UsageTimeEntry> entries = dao.getAllEntries();
+            Log.i("Antygarb_StatWorker", "Usage time retrieved");
+
+            try {
+                JSONArray entriesJson = new JSONArray();
+                LocalDateTime last_time_uploaded = LocalDateTime.parse(prefs.getString("last_appusage_upload_time", "1970-01-01T00:00:00"));
+
+                for (UsageTimeEntry entry : entries) {
+                    if (last_time_uploaded.isBefore(entry.appStarted)) {
+                        JSONObject object = new JSONObject();
+                        object.put("type", entry.type.toString());
+                        object.put("app_started", entry.appStarted);
+                        object.put("app_stopped", entry.appStopped);
+                        object.put("correct_poses", entry.correctPoses);
+                        object.put("incorrect_poses", entry.incorrectPoses);
+                        object.put("correct_to_incorrect", entry.correctToIncorrectPoseNormalised);
+                        entriesJson.put(object);
+                    }
+                }
+                if (entriesJson.length() != 0) {
+                    JSONObject jsonUpload = new JSONObject()
+                            .put("client_uid", clientUID)
+                            .put("client_token", clientToken)
+                            .put("entries", entriesJson);
+
+                    RequestBody requestBody = RequestBody.create(
+                            jsonUpload.toString(),
+                            MediaType.parse("application/json; charset=utf-8")
+                    );
+                    Request request = new Request.Builder()
+                            .url(PreviewActivity.webserverUrl + "/upload-usage")
+                            .post(requestBody)
+                            .build();
+                    Response response = client.newCall(request).execute();
+                    if (response.code() == 200) {
+                        prefs.edit().putString("last_appusage_upload_time", LocalDateTime.now().toString()).apply();
+                    } else {
+                        Log.e("Antygarb_Auth", response.toString());
+                    }
+                }
+            } catch (JSONException | IOException e) {
+                Log.e("Antygarb_Auth", e.getLocalizedMessage());
+            }
+
+            return false;
+        }
+        return false;
+    }
+
+    public static void uploadStatisticsThreaded() {
+        new Thread(() -> {
+            uploadStatistics();
+        }).start();
+    }
+}
