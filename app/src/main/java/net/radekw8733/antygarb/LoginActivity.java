@@ -4,16 +4,11 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.ProgressBar;
 
-import com.google.android.material.button.MaterialButton;
 import com.google.android.material.color.DynamicColors;
-import com.google.android.material.progressindicator.CircularProgressIndicator;
-import com.google.android.material.progressindicator.CircularProgressIndicatorSpec;
-import com.google.android.material.progressindicator.IndeterminateDrawable;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
@@ -25,10 +20,6 @@ import java.io.IOException;
 
 import okhttp3.Call;
 import okhttp3.Callback;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
 import okhttp3.Response;
 
 public class LoginActivity extends AppCompatActivity {
@@ -52,54 +43,45 @@ public class LoginActivity extends AppCompatActivity {
         emailLayout.setErrorEnabled(false);
         passwordLayout.setErrorEnabled(false);
 
-        try {
-            OkHttpClient client = new OkHttpClient();
-            JSONObject jsonPayload = new JSONObject()
-                    .put("client_uid", prefs.getLong("client_uid", 0))
-                    .put("client_token", prefs.getString("client_token", ""))
-                    .put("email", emailInput.getText().toString().trim())
-                    .put("password", passwordInput.getText().toString().trim());
-            client.newCall(
-                    new Request.Builder()
-                            .post(RequestBody.create(jsonPayload.toString(), MediaType.get("application/json; charset=utf-8")))
-                            .url(PreviewActivity.webserverUrl + "/login")
-                            .build()).enqueue(new Callback() {
-                @Override
-                public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                    Snackbar.make(v, e.toString(), 2000).show();
-                    runOnUiThread(() -> progressBar.setVisibility(View.INVISIBLE));
-                }
+        AccountStruct account = new AccountStruct();
+        account.client_uid = prefs.getLong("client_uid", 0);
+        account.client_token = prefs.getString("client_token", "");
+        account.email = emailInput.getText().toString().trim();
+        account.password = passwordInput.getText().toString().trim().toCharArray();
 
-                @Override
-                public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                    if (response.code() == 200) {
-                        try {
-                            JSONObject json = new JSONObject(response.body().string());
-                            prefs.edit()
-                                    .putString("account_first_name", json.getString("first_name"))
-                                    .putString("account_last_name", json.getString("last_name"))
-                                    .putString("account_email", json.getString("email"))
-                                    .putBoolean("account_logged", true).apply();
-                            finishActivity(0);
-                        } catch (JSONException e) {
-                            Snackbar.make(v, e.toString(), 2000).show();
-                            runOnUiThread(() -> progressBar.setVisibility(View.INVISIBLE));
-                        }
-                    }
-                    else if (response.code() == 401) {
-                        runOnUiThread(() -> {
-                            progressBar.setVisibility(View.INVISIBLE);
-                            emailLayout.setError(getString(R.string.loginactivity_error));
-                            emailLayout.setErrorEnabled(true);
-                            passwordLayout.setError(getString(R.string.loginactivity_error));
-                            passwordLayout.setErrorEnabled(true);
-                        });
+        AntygarbServerConnector.loginAccount(account, new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                Snackbar.make(v, e.toString(), 2000).show();
+                runOnUiThread(() -> progressBar.setVisibility(View.INVISIBLE));
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                if (response.code() == 200) {
+                    try {
+                        JSONObject json = new JSONObject(response.body().string());
+                        prefs.edit()
+                                .putString("account_first_name", json.getString("first_name"))
+                                .putString("account_last_name", json.getString("last_name"))
+                                .putString("account_email", json.getString("email"))
+                                .putBoolean("account_logged", true).apply();
+                        finishActivity(0);
+                    } catch (JSONException e) {
+                        Snackbar.make(v, e.toString(), 2000).show();
+                        runOnUiThread(() -> progressBar.setVisibility(View.INVISIBLE));
                     }
                 }
-            });
-        }
-        catch (JSONException e) {
-            Snackbar.make(v, e.toString(), 2000).show();
-        }
+                else if (response.code() == 401) {
+                    runOnUiThread(() -> {
+                        progressBar.setVisibility(View.INVISIBLE);
+                        emailLayout.setError(getString(R.string.loginactivity_error));
+                        emailLayout.setErrorEnabled(true);
+                        passwordLayout.setError(getString(R.string.loginactivity_error));
+                        passwordLayout.setErrorEnabled(true);
+                    });
+                }
+            }
+        });
     }
 }

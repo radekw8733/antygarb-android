@@ -19,26 +19,16 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
-import android.graphics.BitmapFactory;
 import android.graphics.drawable.ShapeDrawable;
 import android.os.Build;
 import android.os.Bundle;
-import android.text.Layout;
-import android.util.Log;
-import android.view.ContextThemeWrapper;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.view.ViewGroup;
 import android.view.ViewOverlay;
-import android.view.animation.AlphaAnimation;
-import android.view.animation.DecelerateInterpolator;
 import android.widget.TextView;
 
-import com.google.android.material.button.MaterialButton;
-import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
-import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textview.MaterialTextView;
 
 import org.json.JSONException;
@@ -51,17 +41,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
-import okhttp3.MediaType;
-import okhttp3.RequestBody;
 import xyz.schwaab.avvylib.AvatarView;
 import okhttp3.Call;
 import okhttp3.Callback;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
 import okhttp3.Response;
 
 public class PreviewActivity extends AppCompatActivity implements KeypointsReturn {
-    public static String webserverUrl = "https://api.srv45036.seohost.com.pl/api/v1";
     private CameraInferenceUtil util;
     public static CameraInferenceUtil.CalibratedPose calibratedPose = new CameraInferenceUtil.CalibratedPose();
     public static UsageTimeDatabase usageTimeDatabase;
@@ -102,7 +87,7 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
     private void setupProfile() {
         ((AvatarView) findViewById(R.id.profilePicture)).setImageResource(R.drawable.avatar);
         if (!prefs.getBoolean("setup_done", false)) {
-            requestUserAuth();
+            AntygarbServerConnector.requestUserAuth();
 
             PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(StatisticsUploadWorker.class,
                     15, TimeUnit.MINUTES,
@@ -114,54 +99,27 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
             workManager.enqueueUniquePeriodicWork("StatWorker", ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE, workRequest);
         }
         else {
-            OkHttpClient client = new OkHttpClient();
-            try {
-                JSONObject jsonPayload = new JSONObject()
-                        .put("client_uid", prefs.getLong("client_uid", 0))
-                        .put("client_token", prefs.getString("client_token", ""));
-                RequestBody requestBody = RequestBody.create(jsonPayload.toString(), MediaType.parse("application/json; charset=utf-8"));
-                Request request = new Request.Builder().post(requestBody).url(webserverUrl + "/account-details").build();
-                client.newCall(request).enqueue(new Callback() {
-                    @Override
-                    public void onFailure(@NonNull Call call, @NonNull IOException e) {
+            AntygarbServerConnector.getAccountDetails(new Callback() {
+                @Override
+                public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                    e.printStackTrace();
+                }
+
+                @Override
+                public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                    try {
+                        if (response.code() == 200) {
+                            JSONObject json = new JSONObject(response.body().string());
+                        }
+                        else if (response.code() == 403) {
+                            prefs.edit().putBoolean("account_logged", false).apply();
+                        }
+                    } catch (JSONException e) {
                         e.printStackTrace();
                     }
-
-                    @Override
-                    public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                        // set profile picture
-                    }
-                });
-            }
-            catch (JSONException e) {
-                e.printStackTrace();
-            }
-        }
-    }
-
-    private void requestUserAuth() {
-        OkHttpClient client = new OkHttpClient();
-        Request request = new Request.Builder().url(webserverUrl + "/new-apiuser").get().build();
-        client.newCall(request).enqueue(new Callback() {
-            @Override
-            public void onFailure(@NonNull Call call, @NonNull IOException e) {
-                Log.e("Antygarb_Auth", e.toString());
-            }
-
-            @Override
-            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
-                try {
-                    JSONObject json = new JSONObject(response.body().string());
-                    prefs.edit()
-                            .putLong("client_uid", json.getLong("client_uid"))
-                            .putString("client_token", json.getString("client_token"))
-                            .putBoolean("setup_done", true)
-                            .apply();
-                } catch (JSONException e) {
-                    Log.e("Antygarb_Auth", e.toString());
                 }
-            }
-        });
+            });
+        }
     }
 
     private void setupNotificationChannel() {
@@ -285,7 +243,6 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
             avatarView.setImageResource(R.drawable.avatar);
 
             new AlertDialog.Builder(this)
-                    .setIcon(R.drawable.avatar)
                     .setTitle(R.string.profile_dialog_account)
                     .setView(dialogRoot)
                     .setPositiveButton(R.string.profile_dialog_loginbutton, (dialog, which) -> {
@@ -313,6 +270,15 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
                     .setTitle(R.string.profile_dialog_account)
                     .setView(dialogRoot)
                     .setNeutralButton(android.R.string.cancel, (dialog, which) -> dialog.cancel())
+                    .setNegativeButton(R.string.profile_dialog_logout, (dialog, which) -> {
+                        prefs.edit()
+                                .putBoolean("account_logged", false)
+                                .putString("account_first_name", "")
+                                .putString("account_last_name", "")
+                                .putString("account_email", "")
+                                .putString("account_password", "")
+                                .apply();
+                    })
                     .setCancelable(true)
                     .create().show();
         }

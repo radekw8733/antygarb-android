@@ -4,7 +4,7 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.util.Log;
 
-import androidx.work.ListenableWorker;
+import androidx.annotation.NonNull;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -14,6 +14,8 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.List;
 
+import okhttp3.Call;
+import okhttp3.Callback;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -41,11 +43,74 @@ public class AntygarbServerConnector {
         client = new OkHttpClient();
     }
 
+    public static void requestUserAuth() {
+        Request request = new Request.Builder().url(webserverUrl + "/new-apiuser").get().build();
+        client.newCall(request).enqueue(new Callback() {
+            @Override
+            public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                AntygarbServerConnector.printError(e);
+            }
+
+            @Override
+            public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                try {
+                    JSONObject json = new JSONObject(response.body().string());
+                    prefs.edit()
+                            .putLong("client_uid", json.getLong("client_uid"))
+                            .putString("client_token", json.getString("client_token"))
+                            .putBoolean("setup_done", true)
+                            .apply();
+                } catch (JSONException e) {
+                    AntygarbServerConnector.printError(e);
+                }
+            }
+        });
+    }
+
+    public static void loginAccount(AccountStruct account, Callback callback) {
+        try {
+            JSONObject jsonPayload = new JSONObject()
+                    .put("client_uid", account.client_uid)
+                    .put("client_token", account.client_token)
+                    .put("email", account.email)
+                    .put("password", account.password);
+            client.newCall(
+                    new Request.Builder()
+                            .post(RequestBody.create(jsonPayload.toString(), MediaType.get("application/json; charset=utf-8")))
+                            .url(webserverUrl + "/login")
+                            .build()).enqueue(callback);
+        }
+        catch (JSONException e) {
+            AntygarbServerConnector.printError(e);
+        }
+    }
+
+    public static void registerAccount(AccountStruct account, Callback callback) {
+        try {
+            JSONObject jsonPayload = new JSONObject()
+                    .put("client_uid", account.client_uid)
+                    .put("client_token", account.client_token)
+                    .put("email", account.email)
+                    .put("password", account.password)
+                    .put("first_name", account.first_name)
+                    .put("last_name", account.last_name);
+            client.newCall(
+                    new Request.Builder()
+                            .post(RequestBody.create(jsonPayload.toString(), MediaType.get("application/json; charset=utf-8")))
+                            .url(AntygarbServerConnector.webserverUrl + "/create-account")
+                            .build()).enqueue(callback);
+        }
+        catch (JSONException e) {
+            AntygarbServerConnector.printError(e);
+        }
+    }
+
     public static boolean uploadStatistics() {
         if (prefs.getBoolean("setup_done", false)) {
             Log.i("Antygarb_StatWorker", "Worker start");
-            long clientUID = prefs.getLong("client_uid", 0);
-            String clientToken = prefs.getString("client_token", "");
+            UserStruct user = new UserStruct();
+            user.client_uid = prefs.getLong("client_uid", 0);
+            user.client_token = prefs.getString("client_token", "");
 
             dao = PreviewActivity.usageTimeDatabase.usageTimeDao();
             List<UsageTimeEntry> entries = dao.getAllEntries();
@@ -69,8 +134,8 @@ public class AntygarbServerConnector {
                 }
                 if (entriesJson.length() != 0) {
                     JSONObject jsonUpload = new JSONObject()
-                            .put("client_uid", clientUID)
-                            .put("client_token", clientToken)
+                            .put("client_uid", user.client_uid)
+                            .put("client_token", user.client_token)
                             .put("entries", entriesJson);
 
                     RequestBody requestBody = RequestBody.create(
@@ -78,23 +143,47 @@ public class AntygarbServerConnector {
                             MediaType.parse("application/json; charset=utf-8")
                     );
                     Request request = new Request.Builder()
-                            .url(PreviewActivity.webserverUrl + "/upload-usage")
+                            .url(webserverUrl + "/upload-usage")
                             .post(requestBody)
                             .build();
                     Response response = client.newCall(request).execute();
                     if (response.code() == 200) {
                         prefs.edit().putString("last_appusage_upload_time", LocalDateTime.now().toString()).apply();
                     } else {
-                        Log.e("Antygarb_Auth", response.toString());
+                        AntygarbServerConnector.printError(response.toString());
                     }
                 }
             } catch (JSONException | IOException e) {
-                Log.e("Antygarb_Auth", e.getLocalizedMessage());
+                AntygarbServerConnector.printError(e);
             }
-
             return false;
         }
         return false;
+    }
+
+    public static void getAccountDetails(Callback callback) {
+        try {
+            UserStruct user = new UserStruct();
+            user.client_uid = prefs.getLong("client_uid", 0);
+            user.client_token = prefs.getString("client_token", "");
+            JSONObject jsonPayload = new JSONObject()
+                    .put("client_uid", user.client_uid)
+                    .put("client_token", user.client_token);
+            RequestBody requestBody = RequestBody.create(jsonPayload.toString(), MediaType.parse("application/json; charset=utf-8"));
+            Request request = new Request.Builder().post(requestBody).url(webserverUrl + "/account-details").build();
+            client.newCall(request).enqueue(callback);
+        }
+        catch (JSONException e) {
+            AntygarbServerConnector.printError(e);
+        }
+    }
+
+    private static void printError(Exception e) {
+        Log.e("Antygarb_API", e.getLocalizedMessage());
+    }
+
+    private static void printError(String e) {
+        Log.e("Antygarb_API", e);
     }
 
     public static void uploadStatisticsThreaded() {
