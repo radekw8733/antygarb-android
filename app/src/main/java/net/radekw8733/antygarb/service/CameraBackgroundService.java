@@ -1,4 +1,4 @@
-package net.radekw8733.antygarb;
+package net.radekw8733.antygarb.service;
 
 import android.app.Notification;
 import android.app.PendingIntent;
@@ -12,13 +12,19 @@ import android.os.Build;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.lifecycle.LifecycleService;
 
-import java.time.LocalDate;
+import net.radekw8733.antygarb.R;
+import net.radekw8733.antygarb.activity.PreviewActivity;
+import net.radekw8733.antygarb.ai.CameraInferenceUtil;
+import net.radekw8733.antygarb.ai.KeypointsReturn;
+import net.radekw8733.antygarb.db.UsageTimeDao;
+import net.radekw8733.antygarb.db.UsageTimeEntry;
+
 import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
 
-public class CameraBackgroundService extends LifecycleService implements KeypointsReturn{
+public class CameraBackgroundService extends LifecycleService implements KeypointsReturn {
     private static CameraInferenceUtil util;
     public static CameraInferenceUtil.CalibratedPose calibratedPose;
     private UsageTimeDao usageTimeDao = PreviewActivity.usageTimeDatabase.usageTimeDao();

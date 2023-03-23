@@ -1,4 +1,4 @@
-package net.radekw8733.antygarb;
+package net.radekw8733.antygarb.activity;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -30,6 +30,16 @@ import android.widget.TextView;
 import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textview.MaterialTextView;
+
+import net.radekw8733.antygarb.onlineio.AntygarbServerConnector;
+import net.radekw8733.antygarb.service.CameraBackgroundService;
+import net.radekw8733.antygarb.ai.CameraInferenceUtil;
+import net.radekw8733.antygarb.ai.KeypointsReturn;
+import net.radekw8733.antygarb.R;
+import net.radekw8733.antygarb.worker.StatisticsUploadWorker;
+import net.radekw8733.antygarb.db.UsageTimeDao;
+import net.radekw8733.antygarb.db.UsageTimeDatabase;
+import net.radekw8733.antygarb.db.UsageTimeEntry;
 
 import org.json.JSONException;
 import org.json.JSONObject;

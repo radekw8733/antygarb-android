@@ -1,4 +1,4 @@
-package net.radekw8733.antygarb;
+package net.radekw8733.antygarb.onlineio;
 
 public class AccountStruct extends UserStruct {
     public String email;

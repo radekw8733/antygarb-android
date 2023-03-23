@@ -18,7 +18,7 @@
         tools:targetApi="33">
 
         <activity
-            android:name=".PreviewActivity"
+            android:name=".activity.PreviewActivity"
             android:exported="true"
             android:theme="@style/Theme.Antygarb">
             <intent-filter>
@@ -27,16 +27,16 @@
             </intent-filter>
         </activity>
         <activity
-            android:name=".LoginActivity"
+            android:name=".activity.LoginActivity"
             android:theme="@style/Theme.Antygarb"
             android:exported="false" />
         <activity
-            android:name=".RegisterActivity"
+            android:name=".activity.RegisterActivity"
             android:theme="@style/Theme.Antygarb"
             android:exported="false" />
 
         <service
-            android:name=".CameraBackgroundService"
+            android:name=".service.CameraBackgroundService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="camera" />

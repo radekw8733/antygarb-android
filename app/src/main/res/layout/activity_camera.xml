@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    tools:context=".PreviewActivity">
+    tools:context=".activity.PreviewActivity">
 
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/materialToolbar"

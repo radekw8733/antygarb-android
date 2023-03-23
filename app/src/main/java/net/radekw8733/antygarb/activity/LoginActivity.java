@@ -1,4 +1,4 @@
-package net.radekw8733.antygarb;
+package net.radekw8733.antygarb.activity;
 
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
@@ -12,6 +12,10 @@ import com.google.android.material.color.DynamicColors;
 import com.google.android.material.snackbar.Snackbar;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+
+import net.radekw8733.antygarb.onlineio.AccountStruct;
+import net.radekw8733.antygarb.onlineio.AntygarbServerConnector;
+import net.radekw8733.antygarb.R;
 
 import org.json.JSONException;
 import org.json.JSONObject;

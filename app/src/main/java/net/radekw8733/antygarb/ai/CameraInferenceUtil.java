@@ -1,4 +1,4 @@
-package net.radekw8733.antygarb;
+package net.radekw8733.antygarb.ai;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
@@ -26,10 +26,10 @@ import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.camera.view.PreviewView;
 import androidx.core.content.ContextCompat;
 import androidx.lifecycle.LifecycleOwner;
-import androidx.room.Room;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
+import net.radekw8733.antygarb.service.CameraBackgroundService;
 import net.radekw8733.antygarb.ml.LiteModelMovenetSingleposeLightning3;
 
 import org.tensorflow.lite.DataType;

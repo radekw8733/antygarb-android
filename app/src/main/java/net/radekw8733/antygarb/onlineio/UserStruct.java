@@ -1,4 +1,4 @@
-package net.radekw8733.antygarb;
+package net.radekw8733.antygarb.onlineio;
 
 public class UserStruct {
     public long client_uid;
