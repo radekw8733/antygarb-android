@@ -17,8 +17,8 @@ android {
         applicationId "net.radekw8733.antygarb"
         minSdk 28
         targetSdk 33
-        versionCode 1
-        versionName "1.0"
+        versionCode 2
+        versionName "1.0-01.04.2023"
         resConfigs "pl", "en"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
