@@ -51,7 +51,7 @@ public class LoginActivity extends AppCompatActivity {
         account.client_uid = prefs.getLong("client_uid", 0);
         account.client_token = prefs.getString("client_token", "");
         account.email = emailInput.getText().toString().trim();
-        account.password = passwordInput.getText().toString().trim().toCharArray();
+        account.password = passwordInput.getText().toString().trim();
 
         AntygarbServerConnector.loginAccount(account, new Callback() {
             @Override
@@ -68,9 +68,9 @@ public class LoginActivity extends AppCompatActivity {
                         prefs.edit()
                                 .putString("account_first_name", json.getString("first_name"))
                                 .putString("account_last_name", json.getString("last_name"))
-                                .putString("account_email", json.getString("email"))
+                                .putString("account_email", account.email)
                                 .putBoolean("account_logged", true).apply();
-                        finishActivity(0);
+                        finish();
                     } catch (JSONException e) {
                         Snackbar.make(v, e.toString(), 2000).show();
                         runOnUiThread(() -> progressBar.setVisibility(View.INVISIBLE));

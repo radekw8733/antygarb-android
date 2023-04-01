@@ -50,7 +50,7 @@ public class RegisterActivity extends AppCompatActivity {
         account.client_uid = prefs.getLong("client_uid", 0);
         account.client_token = prefs.getString("client_token", "");
         account.email = emailInput.getText().toString().trim();
-        account.password = passwordInput.getText().toString().trim().toCharArray();
+        account.password = passwordInput.getText().toString().trim();
         account.first_name = firstNameInput.getText().toString().trim();
         account.last_name = lastNameInput.getText().toString().trim();
 

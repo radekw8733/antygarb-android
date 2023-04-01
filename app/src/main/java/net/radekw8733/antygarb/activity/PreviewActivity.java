@@ -263,7 +263,7 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
                         Intent intent = new Intent(this, RegisterActivity.class);
                         startActivity(intent);
                     })
-                    .setNeutralButton(android.R.string.cancel, (dialog, which) -> dialog.cancel())
+                    .setNeutralButton(android.R.string.cancel, (dialog, which) -> dialog.dismiss())
                     .setCancelable(true)
                     .create().show();
         }
@@ -280,15 +280,7 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
                     .setTitle(R.string.profile_dialog_account)
                     .setView(dialogRoot)
                     .setNeutralButton(android.R.string.cancel, (dialog, which) -> dialog.cancel())
-                    .setNegativeButton(R.string.profile_dialog_logout, (dialog, which) -> {
-                        prefs.edit()
-                                .putBoolean("account_logged", false)
-                                .putString("account_first_name", "")
-                                .putString("account_last_name", "")
-                                .putString("account_email", "")
-                                .putString("account_password", "")
-                                .apply();
-                    })
+                    .setNegativeButton(R.string.profile_dialog_logout, (dialog, which) -> AntygarbServerConnector.logout())
                     .setCancelable(true)
                     .create().show();
         }

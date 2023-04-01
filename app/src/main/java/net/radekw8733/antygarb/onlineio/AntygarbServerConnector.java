@@ -30,6 +30,7 @@ public class AntygarbServerConnector {
     private static Context context;
     private static UsageTimeDao dao;
     private static OkHttpClient client;
+//    public static String webserverUrl = "http://192.168.1.2:8100/api/v1";
     public static String webserverUrl = "https://api.srv45036.seohost.com.pl/api/v1";
     private static SharedPreferences prefs;
 
@@ -103,6 +104,39 @@ public class AntygarbServerConnector {
                             .post(RequestBody.create(jsonPayload.toString(), MediaType.get("application/json; charset=utf-8")))
                             .url(AntygarbServerConnector.webserverUrl + "/create-account")
                             .build()).enqueue(callback);
+        }
+        catch (JSONException e) {
+            AntygarbServerConnector.printError(e);
+        }
+    }
+
+    public static void logout() {
+        prefs.edit()
+                .putBoolean("account_logged", false)
+                .putString("account_first_name", "")
+                .putString("account_last_name", "")
+                .putString("account_email", "")
+                .putString("account_password", "")
+                .apply();
+        try {
+            JSONObject jsonPayload = new JSONObject()
+                    .put("client_uid", prefs.getLong("client_uid", 0))
+                    .put("client_token", prefs.getString("client_token", ""));
+            client.newCall(
+                    new Request.Builder()
+                            .post(RequestBody.create(jsonPayload.toString(), MediaType.get("application/json; charset=utf-8")))
+                            .url(AntygarbServerConnector.webserverUrl + "/logout")
+                            .build()).enqueue(new Callback() {
+                                @Override
+                                public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                                    AntygarbServerConnector.printError(e);
+                                }
+
+                                @Override
+                                public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+
+                                }
+            });
         }
         catch (JSONException e) {
             AntygarbServerConnector.printError(e);
