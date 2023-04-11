@@ -26,7 +26,7 @@
     <string name="profile_dialog_defaultname">Nie jesteś zalogowany</string>
     <string name="profile_dialog_loginbutton">Zaloguj się</string>
     <string name="profile_dialog_registerbutton">Zarejestruj się</string>
-    <string name="profile_dialog_logout">Logout</string>
+    <string name="profile_dialog_logout">Wyloguj się</string>
     <string name="registeractivity_header">Zarejestruj nowe konto</string>
     <string name="registeractivity_button_login">Zarejestruj się</string>
     <string name="registeractivity_first_name">Imię</string>

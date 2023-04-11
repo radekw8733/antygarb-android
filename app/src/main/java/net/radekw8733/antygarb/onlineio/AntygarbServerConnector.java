@@ -2,6 +2,7 @@ package net.radekw8733.antygarb.onlineio;
 
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.Bitmap;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -14,8 +15,13 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.List;
 
 import okhttp3.Call;
@@ -30,8 +36,8 @@ public class AntygarbServerConnector {
     private static Context context;
     private static UsageTimeDao dao;
     private static OkHttpClient client;
-//    public static String webserverUrl = "http://192.168.1.2:8100/api/v1";
-    public static String webserverUrl = "https://api.srv45036.seohost.com.pl/api/v1";
+    public static String webserverUrl = "http://192.168.1.2:8100/api/v1";
+//    public static String webserverUrl = "https://api.srv45036.seohost.com.pl/api/v1";
     private static SharedPreferences prefs;
 
 //    private AntygarbServerConnector() {};
@@ -214,6 +220,67 @@ public class AntygarbServerConnector {
         catch (JSONException e) {
             AntygarbServerConnector.printError(e);
         }
+    }
+
+    public static void uploadAvatar(final Callback callback, final Bitmap bm) {
+        try {
+            UserStruct user = new UserStruct();
+            user.client_uid = prefs.getLong("client_uid", 0);
+            user.client_token = prefs.getString("client_token", "");
+
+            Bitmap scaled = rescaleBitmap(bm);
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            scaled.compress(Bitmap.CompressFormat.PNG, 90, buffer);
+            byte[] rawImage = buffer.toByteArray();
+            String rawImageEncoded = Base64.getEncoder().encodeToString(rawImage);
+
+            JSONObject jsonPayload = new JSONObject()
+                    .put("client_uid", user.client_uid)
+                    .put("client_token", user.client_token)
+                    .put("image", rawImageEncoded);
+            RequestBody requestBody = RequestBody.create(jsonPayload.toString(), MediaType.parse("application/json; charset=utf-8"));
+            Request request = new Request.Builder().post(requestBody).url(webserverUrl + "/upload-avatar").build();
+            client.newCall(request).enqueue(new Callback() {
+                @Override
+                public void onFailure(@NonNull Call call, @NonNull IOException e) {
+                    AntygarbServerConnector.printError(e);
+                    callback.onFailure(call, e);
+                }
+
+                @Override
+                public void onResponse(@NonNull Call call, @NonNull Response response) throws IOException {
+                    if (response.code() == 200) {
+                        callback.onResponse(call, response);
+                    }
+                    else {
+                        AntygarbServerConnector.printError(response.toString());
+                    }
+                }
+            });
+        }
+        catch (JSONException e) {
+            AntygarbServerConnector.printError(e);
+        }
+    }
+
+    private static Bitmap rescaleBitmap(Bitmap image) {
+        int maxWidth = 256;
+        int maxHeight = 256;
+
+        int width = image.getWidth();
+        int height = image.getHeight();
+        float ratioBitmap = (float) width / (float) height;
+        float ratioMax = (float) maxWidth / (float) maxHeight;
+
+        int finalWidth = maxWidth;
+        int finalHeight = maxHeight;
+        if (ratioMax > ratioBitmap) {
+            finalWidth = (int) ((float)maxHeight * ratioBitmap);
+        } else {
+            finalHeight = (int) ((float)maxWidth / ratioBitmap);
+        }
+        image = Bitmap.createScaledBitmap(image, finalWidth, finalHeight, true);
+        return image;
     }
 
     private static void printError(Exception e) {

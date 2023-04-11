@@ -1,5 +1,8 @@
 package net.radekw8733.antygarb.activity;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.PickVisualMediaRequest;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.view.PreviewView;
@@ -19,6 +22,9 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageDecoder;
 import android.graphics.drawable.ShapeDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -31,6 +37,7 @@ import com.google.android.material.color.DynamicColors;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.textview.MaterialTextView;
 
+import net.radekw8733.antygarb.BuildConfig;
 import net.radekw8733.antygarb.onlineio.AntygarbServerConnector;
 import net.radekw8733.antygarb.service.CameraBackgroundService;
 import net.radekw8733.antygarb.ai.CameraInferenceUtil;
@@ -47,6 +54,7 @@ import org.json.JSONObject;
 import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -64,6 +72,10 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
     private UsageTimeEntry entry = new UsageTimeEntry();
     private Map<String, CameraInferenceUtil.Keypoint> lastPose;
     private ViewOverlay overlay;
+    private ActivityResultLauncher<PickVisualMediaRequest> picker;
+    private Bitmap profileImage = null;
+    private AvatarView dialogAvatar;
+    private AvatarView toolbarAvatar;
     private SharedPreferences prefs;
     private long correctTotalPoses = 0;
     private long wrongTotalPoses = 0;
@@ -90,23 +102,36 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
 
         setupProfile();
         setupNotificationChannel();
+        prepareImagePicker();
         enableStopIntentFilter();
         requestCameraAccess();
     }
 
     private void setupProfile() {
-        ((AvatarView) findViewById(R.id.profilePicture)).setImageResource(R.drawable.avatar);
+        toolbarAvatar = (AvatarView) findViewById(R.id.profilePicture);
+        toolbarAvatar.setImageResource(R.drawable.avatar);
+
         if (!prefs.getBoolean("setup_done", false)) {
             AntygarbServerConnector.requestUserAuth();
 
-            PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(StatisticsUploadWorker.class,
-                    15, TimeUnit.MINUTES,
-                    0, TimeUnit.MINUTES)
-                    .build();
-            WorkManager workManager = WorkManager.getInstance(this);
+            if (BuildConfig.DEBUG) {
+                PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(StatisticsUploadWorker.class,
+                        15, TimeUnit.MINUTES,
+                        0, TimeUnit.MINUTES)
+                        .build();
+                WorkManager workManager = WorkManager.getInstance(this);
+                workManager.enqueueUniquePeriodicWork("StatWorker", ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE, workRequest);
+            }
+            else {
+                PeriodicWorkRequest workRequest = new PeriodicWorkRequest.Builder(StatisticsUploadWorker.class,
+                        1, TimeUnit.DAYS,
+                        1, TimeUnit.HOURS)
+                        .build();
+                WorkManager workManager = WorkManager.getInstance(this);
+                workManager.enqueueUniquePeriodicWork("StatWorker", ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE, workRequest);
+            }
 //            workManager.cancelAllWork();     for removing older workers
 //            workManager.pruneWork();
-            workManager.enqueueUniquePeriodicWork("StatWorker", ExistingPeriodicWorkPolicy.CANCEL_AND_REENQUEUE, workRequest);
         }
         else {
             AntygarbServerConnector.getAccountDetails(new Callback() {
@@ -120,6 +145,9 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
                     try {
                         if (response.code() == 200) {
                             JSONObject json = new JSONObject(response.body().string());
+                            byte[] rawImage = Base64.getDecoder().decode(json.getString("image"));
+                            profileImage = BitmapFactory.decodeByteArray(rawImage, 0, rawImage.length);
+                            toolbarAvatar.setImageBitmap(profileImage);
                         }
                         else if (response.code() == 403) {
                             prefs.edit().putBoolean("account_logged", false).apply();
@@ -130,6 +158,34 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
                 }
             });
         }
+    }
+
+    private void prepareImagePicker() {
+        picker = registerForActivityResult(
+                new ActivityResultContracts.PickVisualMedia(),
+                uri -> {
+                    if (uri != null) {
+                        try {
+                            profileImage = ImageDecoder.decodeBitmap(ImageDecoder.createSource(getContentResolver(), uri));
+                            dialogAvatar.setImageBitmap(profileImage);
+                            toolbarAvatar.setImageBitmap(profileImage);
+                            AntygarbServerConnector.uploadAvatar(new Callback() {
+                                @Override
+                                public void onFailure(@NonNull Call call, @NonNull IOException e) {
+
+                                }
+
+                                @Override
+                                public void onResponse(@NonNull Call call, @NonNull Response response) {
+
+                                }
+                            }, profileImage);
+                        } catch (IOException e) {
+                            throw new RuntimeException(e);
+                        }
+                    }
+                }
+        );
     }
 
     private void setupNotificationChannel() {
@@ -245,12 +301,13 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
 
         LayoutInflater layoutInflater = getLayoutInflater();
         View dialogRoot = layoutInflater.inflate(R.layout.profile_dialog, null);
-        AvatarView avatarView = dialogRoot.findViewById(R.id.profile_dialog_avatar);
+        dialogAvatar = dialogRoot.findViewById(R.id.profile_dialog_avatar);
         MaterialTextView firstLastName = dialogRoot.findViewById(R.id.profile_dialog_name);
         MaterialTextView email = dialogRoot.findViewById(R.id.profile_dialog_email);
 
         if (!prefs.getBoolean("account_logged", false)) {
-            avatarView.setImageResource(R.drawable.avatar);
+            dialogAvatar.setImageResource(R.drawable.avatar);
+            dialogAvatar.setClickable(false);
 
             new AlertDialog.Builder(this)
                     .setTitle(R.string.profile_dialog_account)
@@ -268,9 +325,19 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
                     .create().show();
         }
         else {
-            avatarView.setBorderColor(R.color.colorPrimary);
-            avatarView.setBorderColorEnd(R.color.colorSecondary);
-            avatarView.setBorderThickness(10);
+            dialogAvatar.setImageResource(R.drawable.avatar);
+            dialogAvatar.setBorderColor(R.color.colorPrimary);
+            dialogAvatar.setBorderColorEnd(R.color.colorSecondary);
+            dialogAvatar.setBorderThickness(10);
+            dialogAvatar.setClickable(true);
+            dialogAvatar.setOnClickListener(v1 -> {
+                picker.launch(new PickVisualMediaRequest.Builder()
+                        .setMediaType(ActivityResultContracts.PickVisualMedia.ImageOnly.INSTANCE)
+                        .build());
+            });
+            if (profileImage != null) {
+                dialogAvatar.setImageBitmap(profileImage);
+            }
 
             firstLastName.setText(prefs.getString("account_first_name", "") + " " + prefs.getString("account_last_name", ""));
             email.setText(prefs.getString("account_email", ""));
