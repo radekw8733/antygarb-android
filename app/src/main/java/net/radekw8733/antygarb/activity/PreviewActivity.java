@@ -147,7 +147,7 @@ public class PreviewActivity extends AppCompatActivity implements KeypointsRetur
                             JSONObject json = new JSONObject(response.body().string());
                             byte[] rawImage = Base64.getDecoder().decode(json.getString("image"));
                             profileImage = BitmapFactory.decodeByteArray(rawImage, 0, rawImage.length);
-                            toolbarAvatar.setImageBitmap(profileImage);
+                            runOnUiThread(() -> { toolbarAvatar.setImageBitmap(profileImage); });
                         }
                         else if (response.code() == 403) {
                             prefs.edit().putBoolean("account_logged", false).apply();
